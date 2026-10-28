@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "HR for West African businesses: time off, holidays, payslips and payouts in FCFA.",
     start_url: "/time-off",
     display: "standalone",
-    background_color: "#f8f8f8",
+    background_color: "#f3f6f4",
     theme_color: "#1f6f5c",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },

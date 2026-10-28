@@ -417,7 +417,7 @@ function BalanceCard() {
           ))}
         </ul>
         <Button variant="brand" className="w-full h-9 px-3.5 max-md:h-10" onClick={() => openOverlay({ kind: "request" })}>
-          <Icon name="request-time-off" className="text-white" /> Request time-off
+          <Icon name="request-time-off" className="text-on-accent" /> Request time-off
         </Button>
       </div>
     </Card>

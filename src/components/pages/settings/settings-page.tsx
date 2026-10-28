@@ -399,26 +399,26 @@ function NotificationsTab() {
 // relevant tokens locally (globals.css only scopes dark, via [data-theme=dark]).
 const PREVIEW_TOKENS: Record<"light" | "dark", React.CSSProperties> = {
   light: {
-    "--bg-app": "#f8f8f8",
+    "--bg-app": "#f3f6f4",
     "--bg-surface": "#ffffff",
-    "--bg-selected": "#eaeae6",
-    "--bg-hover": "#f1f1ee",
-    "--border-hairline": "#e5e7e1",
-    "--text-primary": "#1d1d1d",
-    "--event-green-bg": "#bde7db",
+    "--bg-selected": "#e4ece8",
+    "--bg-hover": "#ecf1ee",
+    "--border-hairline": "#e2e8e4",
+    "--text-primary": "#0f2a24",
+    "--event-green-bg": "#d8ebe3",
     "--event-purple-bg": "#e3daf7",
     "--event-blue-bg": "#c5e2f9",
   } as React.CSSProperties,
   dark: {
-    "--bg-app": "#121212",
-    "--bg-surface": "#181818",
-    "--bg-selected": "#262624",
-    "--bg-hover": "#232321",
-    "--border-hairline": "#2a2a28",
-    "--text-primary": "#ededed",
-    "--event-green-bg": "#123d31",
-    "--event-purple-bg": "#2d2547",
-    "--event-blue-bg": "#17324a",
+    "--bg-app": "#0b201b",
+    "--bg-surface": "#0f2a24",
+    "--bg-selected": "#1a3a32",
+    "--bg-hover": "#16332c",
+    "--border-hairline": "#1f3d35",
+    "--text-primary": "#e8efec",
+    "--event-green-bg": "#17463a",
+    "--event-purple-bg": "#2d2a4a",
+    "--event-blue-bg": "#17364e",
   } as React.CSSProperties,
 };
 
@@ -474,7 +474,7 @@ function AppearanceTab() {
                 <span
                   className={cn(
                     "flex size-4 items-center justify-center rounded-full border transition-colors duration-150",
-                    active ? "border-brand bg-brand text-white" : "border-control",
+                    active ? "border-brand bg-brand text-on-accent" : "border-control",
                   )}
                 >
                   {active ? <CheckIcon className="size-2.5" strokeWidth={3} /> : null}

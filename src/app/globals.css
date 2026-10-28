@@ -17,66 +17,82 @@
 /* Design tokens — names mirror the Figma variables                     */
 /* ------------------------------------------------------------------ */
 :root {
-  --bg-app: oklch(0.979 0.006 245);
+  /* Brand kit · 03 Color. Green does the work, Mango is the spark, everything else stays quiet. */
+  --nuru: #1f6f5c;
+  --forest: #0f2a24;
+  --sprout: #5fb89a;
+  --mango: #f2a93b;
+  --mist: #f3f6f4;
+  --mint: #d8ebe3;
+  --cream: #fce9c8;
+  --stone: #55655f;
+  --clay: #a23e12;
+
+  --bg-app: var(--mist);
   --bg-surface: #ffffff;
-  --bg-selected: #eaeae6;
-  --bg-hover: #f1f1ee;
+  --bg-selected: #e4ece8;
+  --bg-hover: #ecf1ee;
 
-  --border-hairline: #e5e7e1;
-  --border-control: #ededed;
-  --border-subtle: #f2f2f2;
-  --border-segment: #e5e5e5;
+  --border-hairline: #e2e8e4;
+  --border-control: #e6ebe8;
+  --border-subtle: #eef2ef;
+  --border-segment: #dde5e1;
 
-  --text-primary: #1d1d1d;
-  --text-secondary: #757575;
-  --text-placeholder: #a1a1a1;
-  --text-section: #b8b8b8;
-  --text-heading: #09090b;
-  --text-table: #040e11;
-  --text-dayname: #666666;
+  --text-primary: var(--forest);
+  --text-secondary: var(--stone);
+  --text-placeholder: #8b9893;
+  --text-section: #a7b2ad;
+  --text-heading: var(--forest);
+  --text-table: var(--forest);
+  --text-dayname: var(--stone);
   --text-on-accent: #ffffff;
-  --icon: #a1a1a1;
+  --icon: #8b9893;
 
-  /* Nuru green, sampled from the app icon */
-  --brand: #1f6f5c;
+  /* Primary: buttons, links, active tabs. White on Nuru is 6.0:1. */
+  --brand: var(--nuru);
   --brand-strong: #185a4a;
   --brand-tint: rgba(31, 111, 92, 0.1);
 
-  --event-green-bg: #bde7db;
-  --event-green-fg: #005c42;
+  /* Charts: Nuru + Sprout */
+  --chart-1: var(--brand);
+  --chart-2: var(--sprout);
+
+  --event-green-bg: var(--mint);
+  --event-green-fg: var(--nuru);
   --event-purple-bg: #e3daf7;
   --event-purple-fg: #594290;
-  --event-cyan-bg: #aee9f4;
-  --event-cyan-fg: #28555d;
-  --event-orange-bg: #fdd8b8;
-  --event-orange-fg: #774317;
-  --event-pink-bg: #fdd4e6;
-  --event-pink-fg: #813455;
-  --event-blue-bg: #c5e2f9;
-  --event-blue-fg: #0e5289;
+  --event-cyan-bg: #c9ecf0;
+  --event-cyan-fg: #22545b;
+  --event-orange-bg: var(--cream);
+  --event-orange-fg: #7a4a0c;
+  --event-pink-bg: #fadbe5;
+  --event-pink-fg: #7d3550;
+  --event-blue-bg: #d3e6f5;
+  --event-blue-fg: #13507f;
 
-  --category-green-tint: rgba(0, 164, 117, 0.12);
-  --category-orange-tint: rgba(223, 122, 36, 0.12);
+  --category-green-tint: rgba(31, 111, 92, 0.12);
+  --category-orange-tint: rgba(242, 169, 59, 0.2);
   --category-blue-tint: rgba(23, 139, 232, 0.12);
   --category-cyan-tint: rgba(100, 213, 233, 0.16);
   --category-pink-tint: rgba(248, 100, 164, 0.12);
   --category-purple-tint: rgba(137, 101, 222, 0.12);
 
-  --status-success: #00a475;
-  --status-success-tint: rgba(0, 164, 117, 0.08);
-  --status-success-border: rgba(0, 164, 117, 0.12);
-  --status-danger: #e35753;
-  --status-danger-tint: rgba(239, 71, 71, 0.08);
-  --status-danger-border: rgba(239, 71, 71, 0.12);
-  --status-warning: #df7a24;
-  --status-warning-tint: rgba(223, 122, 36, 0.1);
-  --status-warning-border: rgba(223, 122, 36, 0.16);
-  --status-neutral: #757575;
-  --status-neutral-tint: rgba(117, 117, 117, 0.08);
-  --status-neutral-border: rgba(117, 117, 117, 0.14);
+  /* Approved → Nuru on Mint, pending → Cream, due dates and alerts → Clay */
+  --status-success: var(--nuru);
+  --status-success-tint: rgba(31, 111, 92, 0.08);
+  --status-success-border: rgba(31, 111, 92, 0.16);
+  --status-danger: var(--clay);
+  --status-danger-tint: rgba(162, 62, 18, 0.07);
+  --status-danger-border: rgba(162, 62, 18, 0.14);
+  --status-warning: #8a5a0a;
+  --status-warning-tint: rgba(242, 169, 59, 0.16);
+  --status-warning-border: rgba(242, 169, 59, 0.34);
+  --status-neutral: var(--stone);
+  --status-neutral-tint: rgba(85, 101, 95, 0.08);
+  --status-neutral-border: rgba(85, 101, 95, 0.14);
 
-  --toggle-track: #ededed;
-  --toggle-stroke: #d9ddd5;
+  --toggle-track: #e6ebe8;
+  --toggle-stroke: #d3dcd8;
 
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
@@ -90,7 +106,7 @@
   --popover: var(--bg-surface);
   --popover-foreground: var(--text-primary);
   --primary: var(--brand);
-  --primary-foreground: #ffffff;
+  --primary-foreground: var(--text-on-accent);
   --secondary: var(--bg-app);
   --secondary-foreground: var(--text-primary);
   --muted: var(--bg-app);
@@ -107,45 +123,62 @@
 }
 
 [data-theme="dark"] {
-  --bg-app: #121212;
-  --bg-surface: #181818;
-  --bg-selected: #262624;
-  --bg-hover: #232321;
+  /* Forest surfaces; Sprout takes over as the primary, with Forest text on it (6.4:1) */
+  --bg-app: #0b201b;
+  --bg-surface: var(--forest);
+  --bg-selected: #1a3a32;
+  --bg-hover: #16332c;
 
-  --border-hairline: #2a2a28;
-  --border-control: #313131;
-  --border-subtle: #222222;
-  --border-segment: #363636;
+  --border-hairline: #1f3d35;
+  --border-control: #25453d;
+  --border-subtle: #18352e;
+  --border-segment: #2a4a42;
 
-  --text-primary: #ededed;
-  --text-secondary: #9a9a9a;
-  --text-placeholder: #6b6b6b;
-  --text-section: #5c5c5c;
-  --text-heading: #f5f5f5;
-  --text-table: #e4e4e4;
-  --text-dayname: #a3a3a3;
-  --icon: #7d7d7d;
+  --text-primary: #e8efec;
+  --text-secondary: #9db0a8;
+  --text-placeholder: #6f857c;
+  --text-section: #5e736b;
+  --text-heading: var(--mist);
+  --text-table: #e3ebe7;
+  --text-dayname: #a9bab3;
+  --text-on-accent: var(--forest);
+  --icon: #7d9189;
 
-  /* Lifted so white-on-brand and brand-on-dark both stay ≥ 4:1 */
-  --brand: #2b8a6f;
-  --brand-strong: #237460;
+  --brand: var(--sprout);
+  --brand-strong: #74c6aa;
   --brand-tint: rgba(95, 184, 154, 0.16);
 
-  --event-green-bg: #123d31;
-  --event-green-fg: #8fe0c6;
-  --event-purple-bg: #2d2547;
+  --chart-1: var(--sprout);
+  --chart-2: var(--mango);
+
+  --event-green-bg: #17463a;
+  --event-green-fg: #a9e0cb;
+  --event-purple-bg: #2d2a4a;
   --event-purple-fg: #c9b8f5;
-  --event-cyan-bg: #11393f;
+  --event-cyan-bg: #11404a;
   --event-cyan-fg: #93e3f1;
-  --event-orange-bg: #43301f;
-  --event-orange-fg: #f9c497;
-  --event-pink-bg: #43222f;
+  --event-orange-bg: #48351a;
+  --event-orange-fg: #f7cf8f;
+  --event-pink-bg: #47263a;
   --event-pink-fg: #f6b3d0;
-  --event-blue-bg: #17324a;
+  --event-blue-bg: #17364e;
   --event-blue-fg: #a9d3f6;
 
-  --toggle-track: #2b8a6f;
-  --toggle-stroke: #237460;
+  --status-success: #6fc6a6;
+  --status-success-tint: rgba(95, 184, 154, 0.12);
+  --status-success-border: rgba(95, 184, 154, 0.22);
+  --status-danger: #e0805a;
+  --status-danger-tint: rgba(224, 128, 90, 0.12);
+  --status-danger-border: rgba(224, 128, 90, 0.22);
+  --status-warning: var(--mango);
+  --status-warning-tint: rgba(242, 169, 59, 0.12);
+  --status-warning-border: rgba(242, 169, 59, 0.24);
+  --status-neutral: #9db0a8;
+  --status-neutral-tint: rgba(157, 176, 168, 0.1);
+  --status-neutral-border: rgba(157, 176, 168, 0.18);
+
+  --toggle-track: var(--sprout);
+  --toggle-stroke: #4fa688;
 
   color-scheme: dark;
 }
@@ -172,6 +205,9 @@
   --color-icon: var(--icon);
 
   --color-brand: var(--brand);
+  --color-on-accent: var(--text-on-accent);
+  --color-mango: var(--mango);
+  --color-forest: var(--forest);
   --color-brand-strong: var(--brand-strong);
   --color-brand-tint: var(--brand-tint);
 
@@ -289,22 +325,26 @@
   transition-timing-function: var(--ease-out);
 }
 
-/* Accent surface: the Figma gradient bitmap + 1px ring + top highlight */
+/* Accent surface: a soft top-to-bottom gradient on the brand colour + 1px ring + top highlight */
 @utility accent-surface {
   background-color: var(--brand);
-  background-image: url("/icons/btn-accent-bg.png");
-  background-size: cover;
-  background-position: center;
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--brand), white 6%),
+    color-mix(in oklab, var(--brand), black 8%)
+  );
   box-shadow: 0 0 0 1px var(--brand), inset 0 4px 4px 0 rgba(255, 255, 255, 0.16);
   color: var(--text-on-accent);
 }
 @utility accent-badge {
   background-color: var(--brand);
-  background-image: url("/icons/date-accent-bg.png");
-  background-size: cover;
-  background-position: center;
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--brand), white 6%),
+    color-mix(in oklab, var(--brand), black 8%)
+  );
   box-shadow: 0 0 0 1px var(--brand), inset 0 4px 4px 0 rgba(255, 255, 255, 0.16);
-  color: #fff;
+  color: var(--text-on-accent);
 }
 
 @utility scroll-thin {

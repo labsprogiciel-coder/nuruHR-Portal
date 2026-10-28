@@ -7,14 +7,15 @@ import { cn } from "@/lib/utils";
 import { Card, CardHeader } from "@/components/pages/shared/page-chrome";
 
 /**
- * Chart colors. Categorical slots are validated (dataviz validate_palette.js)
- * against both the light (#fff) and dark (#181818) surfaces:
- *   slot 1 brand #1f6f5c / #2b8a6f (dark) · slot 2 amber #b8741a → distinct in lightness and hue, contrast ≥ 3:1.
+ * Chart colors from the brand kit (--chart-1 / --chart-2 in globals.css):
+ *   light: Nuru #1f6f5c + Sprout #5fb89a, told apart by lightness (2.5:1 between them);
+ *   dark:  Sprout + Mango on Forest, both ≥ 6:1 against the surface.
+ * Every chart also has a table view, so no value depends on colour alone.
  * Status colors come straight from the app's status tokens.
  */
 export const SERIES = {
-  one: "var(--brand)",
-  two: "#b8741a",
+  one: "var(--chart-1)",
+  two: "var(--chart-2)",
 } as const;
 
 export type Series = { id: string; label: string; color: string };

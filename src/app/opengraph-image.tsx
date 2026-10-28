@@ -27,9 +27,9 @@ export default function OpengraphImage() {
           display: "flex",
           flexDirection: "column",
           position: "relative",
-          background: "#f8f8f8",
+          background: "#f3f6f4",
           fontFamily: "Geist",
-          color: "#1d1d1d",
+          color: "#0f2a24",
           padding: "60px 72px 0",
           overflow: "hidden",
         }}
@@ -54,7 +54,7 @@ export default function OpengraphImage() {
         <div style={{ marginTop: 34, fontSize: 56, fontWeight: 600, letterSpacing: -2, lineHeight: 1.05 }}>
           HR for West African businesses
         </div>
-        <div style={{ marginTop: 16, fontSize: 26, color: "#757575", letterSpacing: -0.5 }}>
+        <div style={{ marginTop: 16, fontSize: 26, color: "#55655f", letterSpacing: -0.5 }}>
           Leave, national holidays and payouts in FCFA — in one calm workspace.
         </div>
 
@@ -68,7 +68,7 @@ export default function OpengraphImage() {
             display: "flex",
             borderRadius: 18,
             overflow: "hidden",
-            border: "1px solid #e5e7e1",
+            border: "1px solid #e2e8e4",
             boxShadow: "0 24px 64px -16px rgba(20,20,18,0.22), 0 4px 14px rgba(20,20,18,0.06)",
             background: "#ffffff",
           }}

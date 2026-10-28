@@ -71,7 +71,7 @@ export function FilterMenu({ groups, activeCount, onReset, title = "Filters", tr
             <SlidersHorizontalIcon className={cn(activeCount > 0 && "text-brand")} />
             {triggerLabel}
             {activeCount > 0 && (
-              <span className="t-12 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-white">{activeCount}</span>
+              <span className="t-12 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-on-accent">{activeCount}</span>
             )}
           </Button>
         </DrawerTrigger>
