@@ -38,6 +38,6 @@
     "vitest": "^5.0.5"
   },
   "license": "MIT",
-  "description": "Kargul Calender Design Prototype — a calm people-ops workspace for time off, calendars and leave requests.",
+  "description": "Nuru — an HR portal for West African SMBs: time off under the Burkina Faso Labour Code, national holidays and FCFA amounts.",
   "author": "Kargul Studio <dev@kargul.studio> (https://kargul.studio)"
 }

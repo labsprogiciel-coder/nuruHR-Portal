@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatTime } from "@/lib/dates";
+import { LABOUR_CODE, STATUTORY_ANNUAL_DAYS } from "@/lib/labour-code";
 import { computeLeaveStats, formatDays } from "@/lib/leave";
 import type { Settings } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -296,23 +297,32 @@ function TimeOffTab() {
   const today = useToday();
   const requests = useAppStore((s) => s.requests);
   const holidays = useAppStore((s) => s.holidays);
-  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays }, today), [requests, settings, holidays, today]);
-  const total = settings.contractDays + settings.carryoverDays;
+  const startDate = useAppStore((s) => s.profile.startDate);
+  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays, profile: { startDate } }, today), [requests, settings, holidays, startDate, today]);
+  const total = stats.contract + stats.carryover;
 
   return (
     <div className="grid gap-4">
-      <Panel title="Time off" description="Your yearly allowance. Balances everywhere update instantly.">
-        <Row title="Contract days" description="Paid days off per calendar year (0–60)" htmlFor="st-contract" stack>
+      <Panel
+        title="Time off"
+        description={`Your yearly allowance under the ${LABOUR_CODE.name}. Balances everywhere update instantly.`}
+      >
+        <Row
+          title="Days per year"
+          description={`Paid leave for a full year of service (${STATUTORY_ANNUAL_DAYS}–60). The law's minimum is ${STATUTORY_ANNUAL_DAYS}; a contract can give more.`}
+          htmlFor="st-contract"
+          stack
+        >
           <Stepper
             id="st-contract"
-            label="contract days"
+            label="days per year"
             value={settings.contractDays}
-            min={0}
+            min={STATUTORY_ANNUAL_DAYS}
             max={60}
             onChange={(v) => set("contractDays", v)}
           />
         </Row>
-        <Row title="Carryover days" description="Unused days brought over from last year (0–30)" htmlFor="st-carryover" stack>
+        <Row title="Carryover days" description="Unused days deferred from last year with your employer’s agreement (0–30)" htmlFor="st-carryover" stack>
           <Stepper
             id="st-carryover"
             label="carryover days"
@@ -326,7 +336,8 @@ function TimeOffTab() {
       <div className="flex items-center gap-4 rounded-xl border border-hairline bg-app px-4 py-3.5 max-sm:flex-wrap max-sm:gap-3">
         <div className="grid flex-1 gap-1.5 max-sm:basis-full">
           <span className="t-14 text-fg">
-            {formatDays(total)} days this year · {formatDays(stats.available)} available
+            {formatDays(total)} days this year{stats.seniority ? ` (incl. ${stats.seniority} for seniority)` : ""} ·{" "}
+            {formatDays(stats.available)} available
           </span>
           <span className="t-12 text-fg-2">
             {formatDays(stats.taken + stats.upcoming)} approved · {formatDays(stats.pendingDays)} pending ·{" "}
@@ -388,26 +399,26 @@ function NotificationsTab() {
 // relevant tokens locally (globals.css only scopes dark, via [data-theme=dark]).
 const PREVIEW_TOKENS: Record<"light" | "dark", React.CSSProperties> = {
   light: {
-    "--bg-app": "#f8f8f8",
+    "--bg-app": "#f3f6f4",
     "--bg-surface": "#ffffff",
-    "--bg-selected": "#eaeae6",
-    "--bg-hover": "#f1f1ee",
-    "--border-hairline": "#e5e7e1",
-    "--text-primary": "#1d1d1d",
-    "--event-green-bg": "#bde7db",
+    "--bg-selected": "#e4ece8",
+    "--bg-hover": "#ecf1ee",
+    "--border-hairline": "#e2e8e4",
+    "--text-primary": "#0f2a24",
+    "--event-green-bg": "#d8ebe3",
     "--event-purple-bg": "#e3daf7",
     "--event-blue-bg": "#c5e2f9",
   } as React.CSSProperties,
   dark: {
-    "--bg-app": "#121212",
-    "--bg-surface": "#181818",
-    "--bg-selected": "#262624",
-    "--bg-hover": "#232321",
-    "--border-hairline": "#2a2a28",
-    "--text-primary": "#ededed",
-    "--event-green-bg": "#123d31",
-    "--event-purple-bg": "#2d2547",
-    "--event-blue-bg": "#17324a",
+    "--bg-app": "#0b201b",
+    "--bg-surface": "#0f2a24",
+    "--bg-selected": "#1a3a32",
+    "--bg-hover": "#16332c",
+    "--border-hairline": "#1f3d35",
+    "--text-primary": "#e8efec",
+    "--event-green-bg": "#17463a",
+    "--event-purple-bg": "#2d2a4a",
+    "--event-blue-bg": "#17364e",
   } as React.CSSProperties,
 };
 
@@ -463,7 +474,7 @@ function AppearanceTab() {
                 <span
                   className={cn(
                     "flex size-4 items-center justify-center rounded-full border transition-colors duration-150",
-                    active ? "border-brand bg-brand text-white" : "border-control",
+                    active ? "border-brand bg-brand text-on-accent" : "border-control",
                   )}
                 >
                   {active ? <CheckIcon className="size-2.5" strokeWidth={3} /> : null}

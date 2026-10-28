@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
-export const alt = "Kargul — calendar for your team";
+export const alt = "Nuru — HR for West African businesses";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -27,35 +27,35 @@ export default function OpengraphImage() {
           display: "flex",
           flexDirection: "column",
           position: "relative",
-          background: "#f8f8f8",
+          background: "#f3f6f4",
           fontFamily: "Geist",
-          color: "#1d1d1d",
+          color: "#0f2a24",
           padding: "60px 72px 0",
           overflow: "hidden",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <img src={dataUri(icon)} width={44} height={44} alt="" style={{ borderRadius: 11 }} />
-          <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.8 }}>Kargul</div>
+          <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.8 }}>Nuru</div>
           <div
             style={{
               marginLeft: 8,
               fontSize: 17,
-              color: "#8965de",
-              background: "rgba(137,101,222,0.12)",
+              color: "#1f6f5c",
+              background: "rgba(31,111,92,0.12)",
               borderRadius: 999,
               padding: "6px 14px",
             }}
           >
-            Design prototype
+            Burkina Faso · FCFA
           </div>
         </div>
 
         <div style={{ marginTop: 34, fontSize: 56, fontWeight: 600, letterSpacing: -2, lineHeight: 1.05 }}>
-          Calendar for your team
+          HR for West African businesses
         </div>
-        <div style={{ marginTop: 16, fontSize: 26, color: "#757575", letterSpacing: -0.5 }}>
-          Plan leave, track requests and balances — in one calm workspace.
+        <div style={{ marginTop: 16, fontSize: 26, color: "#55655f", letterSpacing: -0.5 }}>
+          Leave, national holidays and payouts in FCFA — in one calm workspace.
         </div>
 
         <div
@@ -68,7 +68,7 @@ export default function OpengraphImage() {
             display: "flex",
             borderRadius: 18,
             overflow: "hidden",
-            border: "1px solid #e5e7e1",
+            border: "1px solid #e2e8e4",
             boxShadow: "0 24px 64px -16px rgba(20,20,18,0.22), 0 4px 14px rgba(20,20,18,0.06)",
             background: "#ffffff",
           }}

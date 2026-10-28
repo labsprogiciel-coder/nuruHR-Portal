@@ -95,7 +95,7 @@ function guessCategory(name: string, fallback: DocCategory): DocCategory {
   if (/contract|agreement|offer|nda/.test(n)) return "Contract";
   if (/policy|handbook|guideline/.test(n)) return "Policy";
   if (/medical|certificate|sick|doctor|health/.test(n)) return "Medical";
-  if (/tax|p60|p45|p11d|w-?2|1099|invoice/.test(n)) return "Tax";
+  if (/tax|fiscal|impot|impôt|iuts|p60|w-?2|1099|invoice|facture/.test(n)) return "Tax";
   return fallback;
 }
 

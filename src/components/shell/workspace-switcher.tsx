@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckIcon, PlusIcon } from "lucide-react";
 import { Icon } from "@/components/icon";
+import { NuruMark } from "@/components/nuru-mark";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +37,7 @@ export function Brand({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex h-full w-60 shrink-0 items-center gap-2 overflow-hidden border-r border-hairline px-3", className)}>
+      <NuruMark className="rounded-[6px]" />
       <span className="salt truncate text-[16px] leading-none font-semibold tracking-[-0.48px] text-fg">{name}</span>
       <span className="h-px min-w-px flex-1" />
       <DropdownMenu>

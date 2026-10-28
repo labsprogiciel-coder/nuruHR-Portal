@@ -15,7 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { formatLong, parseTime, timeInputValue } from "@/lib/dates";
+import { addDays, formatLong, parseTime, timeInputValue } from "@/lib/dates";
+import { COUNTED_IN, DEDUCTED, FAMILY_EVENT_DAYS, MATERNITY_WEEKS } from "@/lib/labour-code";
 import { computeLeaveStats, formatDays, LEAVE_COLORS, LEAVE_TYPES } from "@/lib/leave";
 import type { LeaveRequest, LeaveType } from "@/lib/types";
 import { useToday } from "@/hooks/use-today";
@@ -48,7 +49,7 @@ function initialInput(existing: LeaveRequest | undefined, from: string): Request
       notes: existing.notes,
     };
   }
-  return { type: "Time off", from, to: from, allDay: true, start: 540, end: 780, notes: "" };
+  return { type: "Annual leave", from, to: from, allDay: true, start: 540, end: 780, notes: "" };
 }
 
 function RequestForm({ requestId, from, onDone }: { requestId?: string; from?: string; onDone: () => void }) {
@@ -57,6 +58,7 @@ function RequestForm({ requestId, from, onDone }: { requestId?: string; from?: s
   const requests = useAppStore((s) => s.requests);
   const settings = useAppStore((s) => s.settings);
   const holidays = useAppStore((s) => s.holidays);
+  const startDate = useAppStore((s) => s.profile.startDate);
   const measure = useAppStore((s) => s.measureRequest);
   const submit = useAppStore((s) => s.submitRequest);
   const existing = requests.find((r) => r.id === requestId);
@@ -67,8 +69,8 @@ function RequestForm({ requestId, from, onDone }: { requestId?: string; from?: s
   const set = <K extends keyof RequestInput>(k: K, v: RequestInput[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const stats = useMemo(
-    () => computeLeaveStats({ requests: requests.filter((r) => r.id !== requestId), settings, holidays }, today),
-    [requests, requestId, settings, holidays, today],
+    () => computeLeaveStats({ requests: requests.filter((r) => r.id !== requestId), settings, holidays, profile: { startDate } }, today),
+    [requests, requestId, settings, holidays, startDate, today],
   );
   const measured = measure(form);
 
@@ -80,7 +82,11 @@ function RequestForm({ requestId, from, onDone }: { requestId?: string; from?: s
         : form.allDay && measured.days === 0
           ? "These dates fall on weekends or holidays — nothing to request."
           : null;
-  const remaining = stats.available - measured.days;
+  // Sick and maternity leave never touch the allowance; family events only past the yearly free days.
+  const deducted =
+    form.type === "Family event" ? Math.max(0, measured.days - stats.familyLeft) : DEDUCTED[form.type] ? measured.days : 0;
+  const remaining = stats.available - deducted;
+  const maternityDays = MATERNITY_WEEKS * 7;
 
   return (
     <form
@@ -101,7 +107,15 @@ function RequestForm({ requestId, from, onDone }: { requestId?: string; from?: s
 
       <div className="grid gap-4">
         <Field label="Leave type" htmlFor="rq-type">
-          <Select value={form.type} onValueChange={(v) => set("type", v as LeaveType)}>
+          <Select
+            value={form.type}
+            onValueChange={(v) =>
+              // Maternity leave is a fixed 14-week block, so prefill its end date.
+              v === "Maternity"
+                ? setForm((f) => ({ ...f, type: v, allDay: true, to: addDays(f.from, maternityDays - 1) }))
+                : set("type", v as LeaveType)
+            }
+          >
             <SelectTrigger id="rq-type" className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -199,11 +213,13 @@ function RequestForm({ requestId, from, onDone }: { requestId?: string; from?: s
           <p className="t-12 flex items-center gap-1.5 text-warning">
             <AlertTriangleIcon className="size-3.5" /> This exceeds your balance — it may be unpaid leave.
           </p>
-        ) : form.allDay && form.from !== form.to ? (
-          <p className="t-12 text-fg-2">
-            {formatLong(form.from)} – {formatLong(form.to)} · weekends and public holidays aren’t counted.
-          </p>
-        ) : null}
+        ) : (
+          <TypeHint
+            type={form.type}
+            range={form.allDay && form.from !== form.to ? `${formatLong(form.from)} – ${formatLong(form.to)}` : null}
+            familyLeft={stats.familyLeft}
+          />
+        )}
       </div>
 
       <DialogFooter className="-mx-5 -mb-5 bg-app px-5 py-3">
@@ -215,5 +231,33 @@ function RequestForm({ requestId, from, onDone }: { requestId?: string; from?: s
         </Button>
       </DialogFooter>
     </form>
+  );
+}
+
+/** What the Labour Code says about the chosen type, in one line. */
+function TypeHint({ type, range, familyLeft }: { type: LeaveType; range: string | null; familyLeft: number }) {
+  const counting =
+    COUNTED_IN[type] === "calendar"
+      ? "calendar days, weekends included; public holidays aren’t counted"
+      : "working days; weekends and public holidays aren’t counted";
+  const rule =
+    type === "Sick"
+      ? "Not taken from your balance. Upload a medical certificate in Documents."
+      : type === "Family event"
+        ? `Family events aren’t deducted up to ${FAMILY_EVENT_DAYS} working days a year · ${formatDays(familyLeft)} left.`
+        : type === "Maternity"
+          ? `${MATERNITY_WEEKS} weeks, starting 8 to 4 weeks before the due date. Not taken from your balance.`
+          : null;
+  if (!range && !rule) return null;
+  return (
+    <p className="t-12 leading-[1.4] text-fg-2">
+      {rule}
+      {rule && range ? " " : null}
+      {range && (
+        <>
+          {range} · {counting}.
+        </>
+      )}
+    </p>
   );
 }

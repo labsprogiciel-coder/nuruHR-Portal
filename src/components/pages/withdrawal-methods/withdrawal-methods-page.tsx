@@ -24,14 +24,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { diffDays, formatLong, formatShort, formatWeekday } from "@/lib/dates";
+import { formatMoney } from "@/lib/money";
 import type { WithdrawalMethod } from "@/lib/types";
 import { useToday } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
 import { AddMethodDialog } from "./add-method-dialog";
 import { KIND_META, KindTile, lastWorkingDay, masked, nextPayoutDate } from "./shared";
 
-const money = (amount: number, currency: string) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
 
 export function WithdrawalMethodsPage() {
   const today = useToday();
@@ -218,7 +217,7 @@ export function WithdrawalMethodsPage() {
                         </span>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1.5">
-                        <span className="t-14 text-table tabular-nums">{money(p.amount, p.currency)}</span>
+                        <span className="t-14 text-table tabular-nums">{formatMoney(p.amount, p.currency)}</span>
                         <span
                           className="t-12 flex items-center gap-1"
                           style={{ color: done ? "var(--status-success)" : "var(--status-warning)" }}

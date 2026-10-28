@@ -12,7 +12,7 @@ export const KINDS: { kind: WithdrawalKind; label: string; hint: string; icon: L
 
 export const KIND_META = Object.fromEntries(KINDS.map((k) => [k.kind, k])) as Record<WithdrawalKind, (typeof KINDS)[number]>;
 
-export const PAYOUT_CURRENCIES = ["GBP", "USD", "EUR", "INR"] as const;
+export const PAYOUT_CURRENCIES = ["XOF", "EUR", "USD"] as const;
 
 export function KindTile({ kind, className }: { kind: WithdrawalKind; className?: string }) {
   const { icon: KindIcon, color } = KIND_META[kind];

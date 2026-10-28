@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { formatShort, rangeKeys } from "@/lib/dates";
-import { durationLabel, LEAVE_COLORS, WORKDAY_MINUTES, workingDays } from "@/lib/leave";
+import { countedDays, durationLabel, LEAVE_COLORS, WORKDAY_MINUTES } from "@/lib/leave";
 import { createSeed, STATE_VERSION } from "@/lib/seed";
 import type {
   AppNotification,
@@ -278,7 +278,7 @@ export const useAppStore = create<AppStore>()(
           const hours = Math.round((minutes / 60) * 10) / 10;
           return { days: minutes / WORKDAY_MINUTES, label: durationLabel(0, hours) };
         }
-        const n = workingDays(input.from, input.to, get().holidays).length;
+        const n = countedDays(input.type, input.from, input.to, get().holidays).length;
         return { days: n, label: durationLabel(n, 0) };
       },
       submitRequest: (input, existingId) => {
@@ -492,12 +492,9 @@ export const useAppStore = create<AppStore>()(
       skipHydration: true,
       migrate: (persisted, version) => {
         const s = persisted as AppState;
-        // v3: the main workspace is "Kargul Workspace" (was "Workspace", then "Kargul").
-        if (version < 3) {
-          s.workspaces = s.workspaces.map((w) =>
-            w.id === "ws-main" && (w.name === "Workspace" || w.name === "Kargul") ? { ...w, name: "Kargul Workspace" } : w,
-          );
-        }
+        // v4: rebrand to Nuru for Burkina Faso — new leave types, holidays, FCFA amounts and
+        // Labour Code allowance. The old demo data doesn't map onto any of that, so start fresh.
+        if (version < 4) return createSeed();
         return { ...s, version: STATE_VERSION };
       },
       partialize: (s) => {
@@ -511,4 +508,4 @@ export const useAppStore = create<AppStore>()(
 
 /** Read-only selector for the active workspace name. */
 export const selectWorkspaceName = (s: AppStore) =>
-  s.workspaces.find((w) => w.id === s.workspaceId)?.name ?? "Kargul Workspace";
+  s.workspaces.find((w) => w.id === s.workspaceId)?.name ?? "Nuru Workspace";

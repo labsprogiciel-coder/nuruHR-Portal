@@ -47,7 +47,9 @@ function ClaimForm({ benefit, onDone }: { benefit: Benefit; onDone: () => void }
       ? null
       : !Number.isFinite(value) || value <= 0
         ? "Enter an amount greater than zero."
-        : value > remaining
+        : !Number.isInteger(value)
+          ? "FCFA has no cents — enter whole francs."
+          : value > remaining
           ? `You have ${formatMoney(remaining)} left on this benefit.`
           : null;
   const valid = amount !== "" && !error && description.trim().length > 0;
@@ -60,11 +62,11 @@ function ClaimForm({ benefit, onDone }: { benefit: Benefit; onDone: () => void }
         if (!valid) return;
         claimBenefit(benefit.id, value);
         toast.success("Claim submitted", {
-          description: `${formatMoney(value, true)} · ${benefit.name}`,
+          description: `${formatMoney(value)} · ${benefit.name}`,
         });
         notify({
           title: "Benefit claim submitted",
-          body: `${formatMoney(value, true)} from your ${benefit.name.toLowerCase()} for “${description.trim()}”.`,
+          body: `${formatMoney(value)} from your ${benefit.name.toLowerCase()} for “${description.trim()}”.`,
           href: "/benefits",
         });
         onDone();
@@ -88,22 +90,22 @@ function ClaimForm({ benefit, onDone }: { benefit: Benefit; onDone: () => void }
       <div className="grid gap-4">
         <Field label="Amount" htmlFor="claim-amount" error={error}>
           <div className="relative">
-            <span className="t-14 pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-fg-2">£</span>
             <Input
               id="claim-amount"
               type="number"
-              inputMode="decimal"
-              min={0.01}
-              step={0.01}
+              inputMode="numeric"
+              min={1}
+              step={1}
               max={remaining}
               required
               autoFocus
-              placeholder="0.00"
-              className="pl-6 tabular-nums"
+              placeholder="0"
+              className="pr-14 tabular-nums"
               aria-invalid={!!error}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
+            <span className="t-14 pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-fg-2">FCFA</span>
           </div>
         </Field>
         <Field label="Description" htmlFor="claim-description">

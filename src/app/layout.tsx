@@ -10,39 +10,36 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"], weight: ["60
 
 const SITE_URL = "https://calender-app-design.vercel.app";
 const DESCRIPTION =
-  "A calm people-ops workspace: plan time off, track leave requests and balances, and manage your work calendar. A Kargul Studio design prototype.";
+  "Nuru is the HR portal for small and growing businesses in West Africa: leave that follows the Burkina Faso Labour Code, national holidays, payslips, benefits and payouts in FCFA.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: "Time off · Kargul Workspace", template: "%s · Kargul Workspace" },
+  title: { default: "Time off · Nuru", template: "%s · Nuru" },
   description: DESCRIPTION,
-  applicationName: "Kargul Workspace",
-  authors: [{ name: "Kargul Studio", url: "https://kargul.studio" }],
-  creator: "Kargul Studio",
-  publisher: "Kargul Studio",
-  keywords: ["time off", "leave management", "calendar", "HR", "people ops", "design prototype", "Kargul Studio"],
+  applicationName: "Nuru",
+  keywords: ["HR", "time off", "leave management", "congés", "Burkina Faso", "West Africa", "FCFA", "people ops", "Nuru"],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     url: "/",
-    siteName: "Kargul Calender Design Prototype",
-    title: "Kargul Workspace — Time off & calendar",
+    siteName: "Nuru",
+    title: "Nuru — HR for West African businesses",
     description: DESCRIPTION,
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Kargul Workspace — Time off & calendar",
+    title: "Nuru — HR for West African businesses",
     description: DESCRIPTION,
   },
-  appleWebApp: { capable: true, title: "Kargul", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Nuru", statusBarStyle: "default" },
   formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8f8f8" },
-    { media: "(prefers-color-scheme: dark)", color: "#121212" },
+    { media: "(prefers-color-scheme: light)", color: "#f3f6f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b201b" },
   ],
 };
 

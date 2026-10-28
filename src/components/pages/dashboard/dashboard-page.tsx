@@ -107,9 +107,10 @@ function StatRow() {
   const requests = useAppStore((s) => s.requests);
   const settings = useAppStore((s) => s.settings);
   const holidays = useAppStore((s) => s.holidays);
+  const startDate = useAppStore((s) => s.profile.startDate);
   const timeEntries = useAppStore((s) => s.timeEntries);
 
-  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays }, today), [requests, settings, holidays, today]);
+  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays, profile: { startDate } }, today), [requests, settings, holidays, startDate, today]);
 
   const pending = useMemo(() => requests.filter((r) => r.status === "pending"), [requests]);
   const pendingDays = pending.reduce((a, r) => a + r.days, 0);
@@ -366,7 +367,8 @@ function BalanceCard() {
   const requests = useAppStore((s) => s.requests);
   const settings = useAppStore((s) => s.settings);
   const holidays = useAppStore((s) => s.holidays);
-  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays }, today), [requests, settings, holidays, today]);
+  const startDate = useAppStore((s) => s.profile.startDate);
+  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays, profile: { startDate } }, today), [requests, settings, holidays, startDate, today]);
 
   const total = stats.contract + stats.carryover;
   const used = stats.taken + stats.upcoming;
@@ -415,7 +417,7 @@ function BalanceCard() {
           ))}
         </ul>
         <Button variant="brand" className="w-full h-9 px-3.5 max-md:h-10" onClick={() => openOverlay({ kind: "request" })}>
-          <Icon name="request-time-off" className="text-white" /> Request time-off
+          <Icon name="request-time-off" className="text-on-accent" /> Request time-off
         </Button>
       </div>
     </Card>

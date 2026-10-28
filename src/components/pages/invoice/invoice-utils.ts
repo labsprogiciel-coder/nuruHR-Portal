@@ -1,18 +1,8 @@
 import { formatLong } from "@/lib/dates";
+import { DEFAULT_CURRENCY, formatMoney } from "@/lib/money";
 import type { Invoice, InvoiceItem, InvoiceStatus, Profile } from "@/lib/types";
 
-export const CURRENCIES = ["USD", "EUR", "GBP", "INR"] as const;
-
-const formatters = new Map<string, Intl.NumberFormat>();
-
-export function formatMoney(amount: number, currency: string): string {
-  let f = formatters.get(currency);
-  if (!f) {
-    f = new Intl.NumberFormat("en-US", { style: "currency", currency });
-    formatters.set(currency, f);
-  }
-  return f.format(amount);
-}
+export { CURRENCIES, formatMoney } from "@/lib/money";
 
 export const lineTotal = (item: Pick<InvoiceItem, "quantity" | "rate">) =>
   Math.round((Number(item.quantity) || 0) * (Number(item.rate) || 0) * 100) / 100;
@@ -36,11 +26,11 @@ export function nextInvoiceNumber(invoices: Invoice[], today: string): string {
   return `INV-${year}-${String(max + 1).padStart(3, "0")}`;
 }
 
-/** Sums amounts per currency: "$5,200.00 · €900.00". */
+/** Sums amounts per currency: "1 250 000 FCFA · €900.00". */
 export function formatTotals(list: Invoice[]): string {
   const by = new Map<string, number>();
   for (const inv of list) by.set(inv.currency, (by.get(inv.currency) ?? 0) + invoiceTotal(inv));
-  if (!by.size) return formatMoney(0, "USD");
+  if (!by.size) return formatMoney(0, DEFAULT_CURRENCY);
   return [...by.entries()].map(([c, n]) => formatMoney(n, c)).join(" · ");
 }
 

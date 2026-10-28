@@ -1,12 +1,32 @@
-# Kargul Calender Design Prototype
+# Nuru
 
-A design prototype of **Kargul Workspace**, a people-ops workspace built from the
-"Dashboard – calendar" Figma design. Live at https://calender-app-design.vercel.app.
+**Nuru** is an HR portal for small and growing private-sector businesses in West
+Africa. This prototype is set up for **Burkina Faso**: leave follows the Labour
+Code, the calendar carries the national holidays, and money is shown in **FCFA**
+(West African CFA franc, XOF).
 
-The **Time off** page (`/time-off`, the default route) reproduces the design
-pixel-for-pixel; every other page in the sidebar is built in the same visual
-language. Everything runs in the browser — there is no backend; data persists
-to `localStorage`.
+It is frontend-only — there is no backend; data persists to `localStorage`.
+The UI started from the Kargul Studio "Dashboard – calendar" design prototype.
+
+## Burkina Faso rules
+
+Leave rules live in `src/lib/labour-code.ts` (Loi n° 028-2008/AN portant Code du
+travail) and are applied in `src/lib/leave.ts`:
+
+- **Annual leave** — 2.5 calendar days per month of service, 30 days a year.
+  Counted in calendar days (weekends included); public holidays inside a request
+  don't count. +2 / +4 / +6 days after 20 / 25 / 30 years' seniority. The hiring
+  year is pro-rated by full months of service. Settings won't go below 30.
+- **Family events** — not deducted up to 10 working days a year; anything beyond
+  comes off the annual allowance.
+- **Sick leave** — not deducted; needs a medical certificate.
+- **Maternity** — 14 weeks (prefilled), not deducted.
+- **Public holidays** — 2026 and 2027 in `src/lib/seed.ts`. Korité, Tabaski and
+  Maouloud are flagged `lunar`: their dates are the expected ones and are
+  confirmed by moon sighting, so check them against the official announcement.
+
+Amounts are formatted by `src/lib/money.ts`: `1 250 000 FCFA` (whole francs,
+spaced thousands); other currencies keep their symbol.
 
 ## Stack
 
@@ -32,8 +52,8 @@ Open http://localhost:3000. To return to the exact design state, use
   events to move (across days), drag the bottom edge to resize; overlapping
   events lay out side by side; all-day lane with public holidays; live now-line;
   origin-aware details popover.
-- **Time off** — request dialog that counts working days (skips weekends and
-  holidays) and shows the balance after the request; stats computed from your
+- **Time off** — request dialog that counts calendar or working days by leave
+  type (never public holidays) and shows the balance after the request; stats computed from your
   requests and allowance; requests table with search, filters, sorting, details,
   edit/cancel/delete, and a manager approve/decline preview.
 - **Shell** — workspace switcher, ⌘K search across pages/events/requests/
@@ -60,9 +80,9 @@ src/
   lib/                 types, date helpers, leave rules, seed data
 ```
 
-The seed in `src/lib/seed.ts` is what the design shows: the week of Nov 8–14,
-2026 with Tue Nov 10 selected, and allowance figures of 7 available, 2 pending,
-3 upcoming.
+The seed in `src/lib/seed.ts` opens on the week of Nov 8–14, 2026 with Tue Nov 10
+selected, for an employee in Ouagadougou: 30 days a year + 4 carried over, 16.5
+available, 2 pending requests, 16 national holidays.
 
 ## License
 

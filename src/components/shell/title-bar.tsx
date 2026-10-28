@@ -78,7 +78,7 @@ export function TitleBar() {
           aria-label="Request time-off"
           onClick={() => openOverlay({ kind: "request" })}
         >
-          <Icon name="request-time-off" className="text-white" />
+          <Icon name="request-time-off" className="text-on-accent" />
           <span className="max-sm:sr-only">Request time-off</span>
         </Button>
       </div>

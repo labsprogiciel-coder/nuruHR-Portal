@@ -16,7 +16,7 @@ export type CalEvent = {
 
 export type LeaveStatus = "approved" | "pending" | "declined" | "cancelled";
 
-export type LeaveType = "Time off" | "Sick" | "Extra leave" | "Half-day leave" | "Personal";
+export type LeaveType = "Annual leave" | "Sick" | "Family event" | "Maternity" | "Half-day leave" | "Personal";
 
 export type LeaveRequest = {
   id: string;
@@ -35,7 +35,13 @@ export type LeaveRequest = {
   submittedAt: string;
 };
 
-export type Holiday = { id: string; date: string; name: string };
+export type Holiday = {
+  id: string;
+  date: string;
+  name: string;
+  /** Islamic holidays: the date is confirmed by moon sighting and can move by a day */
+  lunar?: boolean;
+};
 
 export type Profile = {
   name: string;
@@ -57,6 +63,7 @@ export type Settings = {
   weekStartsOn: 0 | 1;
   timeFormat: "24h" | "12h";
   dayStartHour: number;
+  /** Paid leave per full year of service (Labour Code minimum: 30 calendar days) */
   contractDays: number;
   carryoverDays: number;
   showWeekends: boolean;

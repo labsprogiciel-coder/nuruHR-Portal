@@ -22,8 +22,9 @@ export function StatsPanel({ onShowPending }: { onShowPending: () => void }) {
   const requests = useAppStore((s) => s.requests);
   const settings = useAppStore((s) => s.settings);
   const holidays = useAppStore((s) => s.holidays);
+  const startDate = useAppStore((s) => s.profile.startDate);
   const today = useToday();
-  const s = useMemo(() => computeLeaveStats({ requests, settings, holidays }, today), [requests, settings, holidays, today]);
+  const s = useMemo(() => computeLeaveStats({ requests, settings, holidays, profile: { startDate } }, today), [requests, settings, holidays, startDate, today]);
 
   const days = (n: number) => `${formatDays(n)} ${n === 1 ? "day" : "days"}`;
 
@@ -60,7 +61,7 @@ export function StatsPanel({ onShowPending }: { onShowPending: () => void }) {
       icon: "stat-per-year",
       tint: "var(--category-cyan-tint)",
       value: `${days(s.contract)} per year`,
-      caption: "In the contract",
+      caption: s.seniority ? `Incl. ${days(s.seniority)} for seniority` : "2.5 days per month of service",
       label: "Leave policy",
       onSelect: () => openOverlay({ kind: "policy" }),
     },
