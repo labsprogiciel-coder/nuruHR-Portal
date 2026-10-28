@@ -9,12 +9,12 @@ import { Card, CardHeader } from "@/components/pages/shared/page-chrome";
 /**
  * Chart colors. Categorical slots are validated (dataviz validate_palette.js)
  * against both the light (#fff) and dark (#181818) surfaces:
- *   slot 1 brand #8965de · slot 2 cyan #2a9fb8 → CVD ΔE 11.3, normal ΔE ≥ 15, contrast ≥ 3:1.
+ *   slot 1 brand #1f6f5c / #2b8a6f (dark) · slot 2 amber #b8741a → distinct in lightness and hue, contrast ≥ 3:1.
  * Status colors come straight from the app's status tokens.
  */
 export const SERIES = {
   one: "var(--brand)",
-  two: "#2a9fb8",
+  two: "#b8741a",
 } as const;
 
 export type Series = { id: string; label: string; color: string };

@@ -244,7 +244,7 @@ function BenefitCard({
             <>
               <div className="flex items-baseline justify-between gap-3">
                 <span className="t-14 text-table tabular-nums">
-                  {formatMoney(b.used, true)} <span className="text-fg-2">of {formatMoney(b.budget)} used</span>
+                  {formatMoney(b.used)} <span className="text-fg-2">of {formatMoney(b.budget)} used</span>
                 </span>
                 <span className={cn("t-12 tabular-nums", nearlyUsed ? "text-warning" : "text-fg-2")}>
                   {formatMoney(remaining)} left

@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DEFAULT_CURRENCY } from "@/lib/money";
 import type { WithdrawalKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app-store";
@@ -58,7 +59,7 @@ function AddMethodForm({ onDone }: { onDone: () => void }) {
   const [bankName, setBankName] = useState("");
   // Full numbers live only in this form's state while typing; only the last 4 digits are saved.
   const [number, setNumber] = useState("");
-  const [currency, setCurrency] = useState<string>("GBP");
+  const [currency, setCurrency] = useState<string>(DEFAULT_CURRENCY);
 
   const needsNumber = kind === "bank" || kind === "card";
   const minDigits = kind === "card" ? 12 : 6;
@@ -157,7 +158,7 @@ function AddMethodForm({ onDone }: { onDone: () => void }) {
                   <Input
                     id="wm-bank"
                     required
-                    placeholder="e.g. Monzo"
+                    placeholder="e.g. Coris Bank"
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
                   />

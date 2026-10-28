@@ -37,9 +37,10 @@
   --text-on-accent: #ffffff;
   --icon: #a1a1a1;
 
-  --brand: #8965de;
-  --brand-strong: #7958ce;
-  --brand-tint: rgba(137, 101, 222, 0.1);
+  /* Nuru green, sampled from the app icon */
+  --brand: #1f6f5c;
+  --brand-strong: #185a4a;
+  --brand-tint: rgba(31, 111, 92, 0.1);
 
   --event-green-bg: #bde7db;
   --event-green-fg: #005c42;
@@ -125,7 +126,10 @@
   --text-dayname: #a3a3a3;
   --icon: #7d7d7d;
 
-  --brand-tint: rgba(137, 101, 222, 0.18);
+  /* Lifted so white-on-brand and brand-on-dark both stay ≥ 4:1 */
+  --brand: #2b8a6f;
+  --brand-strong: #237460;
+  --brand-tint: rgba(95, 184, 154, 0.16);
 
   --event-green-bg: #123d31;
   --event-green-fg: #8fe0c6;
@@ -140,8 +144,8 @@
   --event-blue-bg: #17324a;
   --event-blue-fg: #a9d3f6;
 
-  --toggle-track: #8965de;
-  --toggle-stroke: #7a55d4;
+  --toggle-track: #2b8a6f;
+  --toggle-stroke: #237460;
 
   color-scheme: dark;
 }
@@ -232,7 +236,7 @@
     cursor: pointer;
   }
   ::selection {
-    background: rgba(137, 101, 222, 0.22);
+    background: rgba(31, 111, 92, 0.2);
   }
   input::placeholder,
   textarea::placeholder {
@@ -333,9 +337,9 @@
 
 @keyframes event-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(137, 101, 222, 0.55);
+    box-shadow: 0 0 0 0 rgba(31, 111, 92, 0.5);
   }
   100% {
-    box-shadow: 0 0 0 10px rgba(137, 101, 222, 0);
+    box-shadow: 0 0 0 10px rgba(31, 111, 92, 0);
   }
 }

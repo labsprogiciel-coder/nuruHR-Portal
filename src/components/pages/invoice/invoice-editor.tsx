@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { addDays } from "@/lib/dates";
+import { DEFAULT_CURRENCY, moneyStep } from "@/lib/money";
 import type { Invoice, InvoiceStatus } from "@/lib/types";
 import { useToday } from "@/hooks/use-today";
 import { uid, useAppStore } from "@/stores/app-store";
@@ -67,7 +68,7 @@ function EditorForm({ invoiceId, onDone }: { invoiceId?: string; onDone: () => v
           client: "",
           issueDate: today,
           dueDate: addDays(today, 30),
-          currency: invoices[0]?.currency ?? "USD",
+          currency: invoices[0]?.currency ?? DEFAULT_CURRENCY,
           notes: "Thank you for your business.",
           items: [blankLine()],
         },
@@ -256,8 +257,8 @@ function EditorForm({ invoiceId, onDone }: { invoiceId?: string; onDone: () => v
                     type="number"
                     inputMode="decimal"
                     min={0}
-                    step="any"
-                    placeholder="0.00"
+                    step={moneyStep(draft.currency)}
+                    placeholder={moneyStep(draft.currency) === 1 ? "0" : "0.00"}
                     className="text-right tabular-nums"
                     value={l.rate}
                     onChange={(e) => setLine(l.id, { rate: e.target.value })}

@@ -15,7 +15,8 @@ import {
   startOfWeek,
   WEEKDAYS,
 } from "@/lib/dates";
-import { computeLeaveStats, formatDays, LEAVE_TYPES, plural, workingDays } from "@/lib/leave";
+import { DEFAULT_CURRENCY, formatMoney } from "@/lib/money";
+import { computeLeaveStats, countedDays, formatDays, LEAVE_TYPES, plural } from "@/lib/leave";
 import type { Invoice, InvoiceStatus, LeaveType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useToday } from "@/hooks/use-today";
@@ -30,8 +31,8 @@ function invoiceTotal(inv: Invoice) {
   return inv.items.reduce((a, it) => a + it.quantity * it.rate, 0);
 }
 
-function money(amount: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
+function money(amount: number, currency: string = DEFAULT_CURRENCY) {
+  return formatMoney(amount, currency, { whole: true });
 }
 
 export function AnalyticsPage() {
@@ -63,30 +64,35 @@ function KpiRow() {
   const requests = useAppStore((s) => s.requests);
   const settings = useAppStore((s) => s.settings);
   const holidays = useAppStore((s) => s.holidays);
+  const startDate = useAppStore((s) => s.profile.startDate);
   const timeEntries = useAppStore((s) => s.timeEntries);
   const invoices = useAppStore((s) => s.invoices);
 
   const kpis = useMemo(() => {
     const year = today.slice(0, 4);
-    const stats = computeLeaveStats({ requests, settings, holidays }, today);
+    const stats = computeLeaveStats({ requests, settings, holidays, profile: { startDate } }, today);
     const thisYear = requests.filter((r) => r.from.startsWith(year));
     const approved = thisYear.filter((r) => r.status === "approved").length;
     const declined = thisYear.filter((r) => r.status === "declined").length;
     const decided = approved + declined;
+    // Every approved day off, including types that don't come off the allowance (sick, family, maternity)
+    const approvedDays = thisYear.filter((r) => r.status === "approved");
+    const daysOff = approvedDays.reduce((a, r) => a + r.days, 0);
+    const daysAhead = approvedDays.filter((r) => r.from >= today).reduce((a, r) => a + r.days, 0);
 
     const since = addDays(today, -29);
     const recent = timeEntries.filter((e) => e.date >= since && e.date <= today);
     const minutes = recent.reduce((a, e) => a + e.minutes, 0);
     const billable = recent.filter((e) => e.billable).reduce((a, e) => a + e.minutes, 0);
 
-    const currency = invoices[0]?.currency ?? "USD";
+    const currency = invoices[0]?.currency ?? DEFAULT_CURRENCY;
     const paid = invoices.filter((i) => i.status === "paid").reduce((a, i) => a + invoiceTotal(i), 0);
     const outstanding = invoices
       .filter((i) => i.status === "sent" || i.status === "overdue")
       .reduce((a, i) => a + invoiceTotal(i), 0);
 
-    return { stats, thisYear, approved, decided, minutes, billable, currency, paid, outstanding };
-  }, [requests, settings, holidays, timeEntries, invoices, today]);
+    return { stats, thisYear, approved, decided, daysOff, daysAhead, minutes, billable, currency, paid, outstanding };
+  }, [requests, settings, holidays, startDate, timeEntries, invoices, today]);
 
   const { stats } = kpis;
   return (
@@ -94,8 +100,8 @@ function KpiRow() {
       <StatTile
         icon="holidays"
         label="Days off approved"
-        value={formatDays(stats.taken + stats.upcoming)}
-        hint={`${formatDays(stats.taken)} taken · ${formatDays(stats.upcoming)} booked ahead`}
+        value={formatDays(kpis.daysOff)}
+        hint={`${formatDays(kpis.daysOff - kpis.daysAhead)} taken · ${formatDays(kpis.daysAhead)} booked ahead`}
       />
       <StatTile
         icon="available"
@@ -132,9 +138,9 @@ function LeavePerMonthCard() {
     const out = Array.from({ length: 12 }, () => 0);
     for (const r of requests) {
       if (r.status !== "approved") continue;
-      // Spread a request's days over the working days it covers (so a trip
-      // across a month boundary lands in both months).
-      const days = workingDays(r.from, r.to, holidays).filter((d) => d.startsWith(year));
+      // Spread a request's days over the days it counts (so a trip across a
+      // month boundary lands in both months).
+      const days = countedDays(r.type, r.from, r.to, holidays).filter((d) => d.startsWith(year));
       if (days.length) {
         for (const d of days) out[Number(d.slice(5, 7)) - 1] += r.days / days.length;
       } else if (r.from.startsWith(year)) {
@@ -371,7 +377,7 @@ const STATUS_ORDER: InvoiceStatus[] = ["paid", "sent", "overdue", "draft"];
 
 function InvoicesCard() {
   const invoices = useAppStore((s) => s.invoices);
-  const currency = invoices[0]?.currency ?? "USD";
+  const currency = invoices[0]?.currency ?? DEFAULT_CURRENCY;
 
   const rows = useMemo(
     () =>

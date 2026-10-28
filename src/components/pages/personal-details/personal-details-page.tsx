@@ -230,7 +230,7 @@ export function PersonalDetailsPage() {
                 {input("email", { type: "email", autoComplete: "email", required: true })}
               </Field>
               <Field label="Phone" htmlFor="pd-phone">
-                {input("phone", { type: "tel", autoComplete: "tel", placeholder: "+44 20 0000 0000" })}
+                {input("phone", { type: "tel", autoComplete: "tel", placeholder: "+226 70 00 00 00" })}
               </Field>
             </div>
           </Section>

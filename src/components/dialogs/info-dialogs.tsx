@@ -16,6 +16,14 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SHORTCUTS } from "@/components/shell/keyboard-shortcuts";
 import { formatWeekday, MONTHS } from "@/lib/dates";
+import {
+  ANNUAL_DAYS_PER_MONTH,
+  FAMILY_EVENT_DAYS,
+  LABOUR_CODE,
+  MATERNITY_EXTENSION_WEEKS,
+  MATERNITY_WEEKS,
+  STATUTORY_ANNUAL_DAYS,
+} from "@/lib/labour-code";
 import { computeLeaveStats, formatDays } from "@/lib/leave";
 import { cn } from "@/lib/utils";
 import { useToday } from "@/hooks/use-today";
@@ -44,7 +52,7 @@ export function HolidaysDialog({ open, onClose }: BaseProps) {
         <DialogHeader className="gap-1.5">
           <DialogTitle className="t-16">National holidays {year}</DialogTitle>
           <DialogDescription className="t-14">
-            {list.length} public holidays · they’re never deducted from your allowance.
+            {list.length} public holidays in {LABOUR_CODE.country} · they’re never deducted from your allowance.
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="-mx-2 max-h-[360px]">
@@ -71,7 +79,10 @@ export function HolidaysDialog({ open, onClose }: BaseProps) {
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                       <span className="t-14 truncate text-fg">{h.name}</span>
-                      <span className="t-12 text-fg-2">{formatWeekday(h.date)}</span>
+                      <span className="t-12 text-fg-2">
+                        {formatWeekday(h.date)}
+                        {h.lunar && " · expected, set by moon sighting"}
+                      </span>
                     </span>
                     {next?.id === h.id && (
                       <span className="t-12 shrink-0 rounded-md bg-brand-tint px-1.5 py-1 text-brand">Next up</span>
@@ -129,35 +140,40 @@ export function PolicyDialog({ open, onClose }: BaseProps) {
   const requests = useAppStore((s) => s.requests);
   const settings = useAppStore((s) => s.settings);
   const holidays = useAppStore((s) => s.holidays);
-  const stats = computeLeaveStats({ requests, settings, holidays }, today);
+  const startDate = useAppStore((s) => s.profile.startDate);
+  const stats = computeLeaveStats({ requests, settings, holidays, profile: { startDate } }, today);
   const total = stats.contract + stats.carryover;
   const used = total - stats.available - stats.pendingDays;
 
   const sections = [
     {
-      title: "Annual allowance",
-      body: `Your contract includes ${stats.contract} days of paid time off per calendar year, plus ${stats.carryover} carryover days from last year.`,
+      title: "Annual leave",
+      body: `The ${LABOUR_CODE.name} gives ${ANNUAL_DAYS_PER_MONTH} days per month of service — ${STATUTORY_ANNUAL_DAYS} days a year. You have ${formatDays(stats.contract)} this year${stats.seniority ? `, including ${stats.seniority} for seniority` : ""}, plus ${formatDays(stats.carryover)} carried over. Seniority adds 2 days after 20 years, 4 after 25 and 6 after 30.`,
     },
     {
       title: "How days are counted",
-      body: "Only working days count. Weekends and national holidays inside a request are skipped automatically; partial days are counted in hours (8h = 1 day).",
+      body: "Annual and maternity leave count calendar days, weekends included. Other leave counts working days. Public holidays inside a request are never counted; partial days are counted in hours (8h = 1 day).",
+    },
+    {
+      title: "Family events",
+      body: `Absences for family events in your household (wedding, birth, bereavement) aren’t taken from your balance, up to ${FAMILY_EVENT_DAYS} working days a year. ${formatDays(stats.familyLeft)} left this year.`,
+    },
+    {
+      title: "Sick and maternity leave",
+      body: `Neither comes off your balance. Sick leave needs a medical certificate uploaded in Documents. Maternity leave lasts ${MATERNITY_WEEKS} weeks, starting 8 to 4 weeks before the due date, and can be extended by ${MATERNITY_EXTENSION_WEEKS} weeks for a certified illness.`,
     },
     {
       title: "Approval",
       body: "Requests go to your manager. Pending requests are held against your balance until they’re approved or declined.",
     },
-    {
-      title: "Sick leave",
-      body: "Sick leave longer than one day needs a medical certificate uploaded in Documents within 3 working days.",
-    },
   ];
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="gap-5 p-5 sm:max-w-[480px]">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-5 overflow-y-auto p-5 sm:max-w-[480px]">
         <DialogHeader className="gap-1.5">
           <DialogTitle className="t-16">Time off policy</DialogTitle>
-          <DialogDescription className="t-14">How your allowance works this year.</DialogDescription>
+          <DialogDescription className="t-14">How your allowance works this year, under the {LABOUR_CODE.name}.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">
           <div className="flex h-2 overflow-hidden rounded-full bg-hairline">

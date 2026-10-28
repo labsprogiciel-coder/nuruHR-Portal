@@ -107,9 +107,10 @@ function StatRow() {
   const requests = useAppStore((s) => s.requests);
   const settings = useAppStore((s) => s.settings);
   const holidays = useAppStore((s) => s.holidays);
+  const startDate = useAppStore((s) => s.profile.startDate);
   const timeEntries = useAppStore((s) => s.timeEntries);
 
-  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays }, today), [requests, settings, holidays, today]);
+  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays, profile: { startDate } }, today), [requests, settings, holidays, startDate, today]);
 
   const pending = useMemo(() => requests.filter((r) => r.status === "pending"), [requests]);
   const pendingDays = pending.reduce((a, r) => a + r.days, 0);
@@ -366,7 +367,8 @@ function BalanceCard() {
   const requests = useAppStore((s) => s.requests);
   const settings = useAppStore((s) => s.settings);
   const holidays = useAppStore((s) => s.holidays);
-  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays }, today), [requests, settings, holidays, today]);
+  const startDate = useAppStore((s) => s.profile.startDate);
+  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays, profile: { startDate } }, today), [requests, settings, holidays, startDate, today]);
 
   const total = stats.contract + stats.carryover;
   const used = stats.taken + stats.upcoming;

@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatTime } from "@/lib/dates";
+import { LABOUR_CODE, STATUTORY_ANNUAL_DAYS } from "@/lib/labour-code";
 import { computeLeaveStats, formatDays } from "@/lib/leave";
 import type { Settings } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -296,23 +297,32 @@ function TimeOffTab() {
   const today = useToday();
   const requests = useAppStore((s) => s.requests);
   const holidays = useAppStore((s) => s.holidays);
-  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays }, today), [requests, settings, holidays, today]);
-  const total = settings.contractDays + settings.carryoverDays;
+  const startDate = useAppStore((s) => s.profile.startDate);
+  const stats = useMemo(() => computeLeaveStats({ requests, settings, holidays, profile: { startDate } }, today), [requests, settings, holidays, startDate, today]);
+  const total = stats.contract + stats.carryover;
 
   return (
     <div className="grid gap-4">
-      <Panel title="Time off" description="Your yearly allowance. Balances everywhere update instantly.">
-        <Row title="Contract days" description="Paid days off per calendar year (0–60)" htmlFor="st-contract" stack>
+      <Panel
+        title="Time off"
+        description={`Your yearly allowance under the ${LABOUR_CODE.name}. Balances everywhere update instantly.`}
+      >
+        <Row
+          title="Days per year"
+          description={`Paid leave for a full year of service (${STATUTORY_ANNUAL_DAYS}–60). The law's minimum is ${STATUTORY_ANNUAL_DAYS}; a contract can give more.`}
+          htmlFor="st-contract"
+          stack
+        >
           <Stepper
             id="st-contract"
-            label="contract days"
+            label="days per year"
             value={settings.contractDays}
-            min={0}
+            min={STATUTORY_ANNUAL_DAYS}
             max={60}
             onChange={(v) => set("contractDays", v)}
           />
         </Row>
-        <Row title="Carryover days" description="Unused days brought over from last year (0–30)" htmlFor="st-carryover" stack>
+        <Row title="Carryover days" description="Unused days deferred from last year with your employer’s agreement (0–30)" htmlFor="st-carryover" stack>
           <Stepper
             id="st-carryover"
             label="carryover days"
@@ -326,7 +336,8 @@ function TimeOffTab() {
       <div className="flex items-center gap-4 rounded-xl border border-hairline bg-app px-4 py-3.5 max-sm:flex-wrap max-sm:gap-3">
         <div className="grid flex-1 gap-1.5 max-sm:basis-full">
           <span className="t-14 text-fg">
-            {formatDays(total)} days this year · {formatDays(stats.available)} available
+            {formatDays(total)} days this year{stats.seniority ? ` (incl. ${stats.seniority} for seniority)` : ""} ·{" "}
+            {formatDays(stats.available)} available
           </span>
           <span className="t-12 text-fg-2">
             {formatDays(stats.taken + stats.upcoming)} approved · {formatDays(stats.pendingDays)} pending ·{" "}

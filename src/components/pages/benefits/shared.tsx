@@ -1,4 +1,5 @@
 import { ArmchairIcon, DumbbellIcon, GraduationCapIcon, HeartPulseIcon, PiggyBankIcon, type LucideIcon } from "lucide-react";
+import { DEFAULT_CURRENCY, formatMoney as formatMoneyIn } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { Benefit, EventColor } from "@/lib/types";
 
@@ -14,12 +15,9 @@ const CATEGORY_STYLE: Record<BenefitCategory, { color: EventColor; icon: LucideI
   Lifestyle: { color: "purple", icon: ArmchairIcon },
 };
 
-/** Benefits carry no currency in the store; the employee is UK-based. */
-const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP", maximumFractionDigits: 0 });
-const moneyExact = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
-
-export function formatMoney(amount: number, exact = false): string {
-  return (exact && amount % 1 !== 0 ? moneyExact : money).format(amount);
+/** Benefits carry no currency in the store; budgets are in the workspace currency (FCFA). */
+export function formatMoney(amount: number): string {
+  return formatMoneyIn(amount, DEFAULT_CURRENCY);
 }
 
 export function CategoryTile({ category, size = "md" }: { category: BenefitCategory; size?: "sm" | "md" }) {
