@@ -149,6 +149,39 @@ export type Benefit = {
 
 export type Workspace = { id: string; name: string };
 
+/** CDI: permanent · CDD: fixed-term · Apprentice/Intern: training contracts */
+export type ContractType = "CDI" | "CDD" | "Apprentice" | "Intern";
+
+/**
+ * An employee's HR file, as the admin sees it. The signed-in user is the employee with id
+ * "emp-me": their identity comes from `profile` and their requests from `requests`.
+ */
+export type Employee = {
+  id: string;
+  name: string;
+  initials: string;
+  email: string;
+  phone: string;
+  jobTitle: string;
+  department: string;
+  manager: string;
+  location: string;
+  startDate: string;
+  contract: ContractType;
+  /** CDD, apprentice and intern contracts end on this date */
+  contractEnd?: string;
+  /** Last day of the trial period (période d'essai), while it runs */
+  trialEnd?: string;
+  /** Gross monthly salary in FCFA */
+  monthlySalary: number;
+  cnssNumber: string;
+  dependents: number;
+  carryoverDays: number;
+};
+
+/** A colleague's leave request. The signed-in user's own requests live in `requests`. */
+export type TeamRequest = LeaveRequest & { employeeId: string };
+
 export type AppState = {
   version: number;
   workspaceId: string;
@@ -165,4 +198,6 @@ export type AppState = {
   invoices: Invoice[];
   withdrawalMethods: WithdrawalMethod[];
   benefits: Benefit[];
+  team: Employee[];
+  teamRequests: TeamRequest[];
 };

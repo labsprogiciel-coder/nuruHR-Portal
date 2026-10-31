@@ -60,6 +60,12 @@ Open http://localhost:3000. To return to the exact design state, use
   documents/invoices, notifications, help menu, dark mode, account menu.
 - **Keyboard** — `⌘K` search, `N` new event, `R` request time-off, `T` today,
   `←/→` previous/next, `D/W/M` views, `?` shortcuts.
+- **Admin (HR)** — HR overview (headcount, approvals waiting, who's off, monthly
+  payroll in FCFA, contract and trial-period ends), an approvals inbox across the
+  team with each request's effect on the balance under the Labour Code, an
+  employee directory with filters, and an employee file (contract, CNSS number,
+  salary, seniority, leave balance and history). The signed-in employee is part
+  of the team, so approving their own request here updates their Time off page.
 - **Other pages** — Dashboard, Analytics, Personal details, Documents, Time
   tracking, Benefits, Invoice, Withdrawal methods, Settings.
 

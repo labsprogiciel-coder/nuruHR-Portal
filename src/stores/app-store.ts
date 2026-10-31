@@ -50,6 +50,8 @@ type Actions = {
   submitRequest: (input: RequestInput, existingId?: string) => LeaveRequest;
   setRequestStatus: (id: string, status: LeaveStatus) => void;
   deleteRequest: (id: string) => void;
+  /** Admin: approve or decline anyone's request (the user's own go through setRequestStatus). */
+  reviewRequest: (id: string, status: "approved" | "declined") => void;
   addHoliday: (date: string, name: string) => void;
   removeHoliday: (id: string) => void;
   // notifications
@@ -162,6 +164,8 @@ const TRACKED = [
   "invoices",
   "withdrawalMethods",
   "benefits",
+  "team",
+  "teamRequests",
 ] as const satisfies readonly (keyof AppState)[];
 type TrackedKey = (typeof TRACKED)[number];
 type Snapshot = Pick<AppState, TrackedKey>;
@@ -184,6 +188,8 @@ const KEY_LABELS: Record<TrackedKey, string> = {
   invoices: "Invoices",
   withdrawalMethods: "Payout methods",
   benefits: "Benefits",
+  team: "Employees",
+  teamRequests: "Leave request",
 };
 
 function snapshotOf(state: AppState): Snapshot {
@@ -194,7 +200,7 @@ function snapshotOf(state: AppState): Snapshot {
 
 function labelFor(keys: TrackedKey[]): string {
   // Leave requests also touch events; name the more specific thing.
-  if (keys.includes("requests")) return KEY_LABELS.requests;
+  if (keys.includes("requests") || keys.includes("teamRequests")) return KEY_LABELS.requests;
   return [...new Set(keys.map((k) => KEY_LABELS[k]))].join(" & ");
 }
 
@@ -357,6 +363,20 @@ export const useAppStore = create<AppStore>()(
           },
         });
       },
+      reviewRequest: (id, status) => {
+        if (get().requests.some((r) => r.id === id)) return get().setRequestStatus(id, status);
+        const req = get().teamRequests.find((r) => r.id === id);
+        if (!req) return;
+        set((s) => ({ teamRequests: s.teamRequests.map((r) => (r.id === id ? { ...r, status } : r)) }));
+        const name = get().team.find((e) => e.id === req.employeeId)?.name ?? "Request";
+        const description = `${name} · ${req.type} · ${whenLabel(req.from, req.to)}`;
+        const undoReview = {
+          label: "Undo",
+          onClick: () => set((s) => ({ teamRequests: s.teamRequests.map((r) => (r.id === id ? req : r)) })),
+        };
+        if (status === "approved") toast.success("Request approved", { description, action: undoReview });
+        else toast.error("Request declined", { description, action: undoReview });
+      },
       addHoliday: (date, name) => {
         set((s) => ({
           holidays: [...s.holidays, { id: uid("ho"), date, name }].sort((a, b) => a.date.localeCompare(b.date)),
@@ -495,6 +515,11 @@ export const useAppStore = create<AppStore>()(
         // v4: rebrand to Nuru for Burkina Faso — new leave types, holidays, FCFA amounts and
         // Labour Code allowance. The old demo data doesn't map onto any of that, so start fresh.
         if (version < 4) return createSeed();
+        // v5: the admin view's team and their requests; keep everything else.
+        if (version < 5) {
+          const seed = createSeed();
+          return { ...s, team: seed.team, teamRequests: seed.teamRequests, version: STATE_VERSION };
+        }
         return { ...s, version: STATE_VERSION };
       },
       partialize: (s) => {

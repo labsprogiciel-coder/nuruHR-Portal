@@ -22,6 +22,14 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Admin",
+    items: [
+      { href: "/admin", label: "HR overview", icon: "nav-dashboard" },
+      { href: "/admin/approvals", label: "Approvals", icon: "status-approved" },
+      { href: "/admin/employees", label: "Employees", icon: "nav-personal" },
+    ],
+  },
+  {
     label: "Payments",
     items: [
       { href: "/invoice", label: "Invoice", icon: "nav-invoice" },
@@ -34,7 +42,13 @@ export const SETTINGS_ITEM: NavItem = { href: "/settings", label: "Settings", ic
 
 export const ALL_PAGES: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), SETTINGS_ITEM];
 
+/** The nav item for a path; the longest match wins, so /admin/approvals isn't /admin. */
+export function activePage(pathname: string): NavItem | undefined {
+  return ALL_PAGES.filter((p) => pathname === p.href || pathname.startsWith(p.href + "/")).sort(
+    (a, b) => b.href.length - a.href.length,
+  )[0];
+}
+
 export function pageTitle(pathname: string): string {
-  const match = ALL_PAGES.find((p) => pathname === p.href || pathname.startsWith(p.href + "/"));
-  return match?.label ?? "Time off";
+  return activePage(pathname)?.label ?? "Time off";
 }
