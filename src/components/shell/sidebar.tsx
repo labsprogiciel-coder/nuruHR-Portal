@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { NAV_GROUPS, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
+import { activePage, NAV_GROUPS, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app-store";
 
@@ -114,7 +114,8 @@ function AccountMenu() {
 /** Navigation + utilities, shared by the desktop sidebar and the mobile nav sheet. */
 export function SidebarBody({ className }: { className?: string }) {
   const pathname = usePathname();
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
+  const activeHref = activePage(pathname)?.href;
+  const isActive = (href: string) => href === activeHref;
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col justify-between gap-6 overflow-y-auto p-3 [scrollbar-width:none]", className)}>

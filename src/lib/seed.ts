@@ -1,4 +1,4 @@
-import type { AppState } from "./types";
+import type { AppState, Employee, TeamRequest } from "./types";
 
 /** The calendar opens on the week shown in the design, with Tue Nov 10 selected. */
 export const DESIGN_DATE = "2026-11-10";
@@ -6,7 +6,7 @@ export const DESIGN_DATE = "2026-11-10";
 /** Used only for server rendering; the browser swaps in the real date on hydration. */
 export const SERVER_TODAY = "2026-10-26";
 
-export const STATE_VERSION = 4;
+export const STATE_VERSION = 5;
 
 const h = (hours: number, minutes = 0) => hours * 60 + minutes;
 
@@ -406,5 +406,104 @@ export function createSeed(): AppState {
         renewsOn: "2027-01-01",
       },
     ],
+    // The company the admin view manages. "emp-me" is the signed-in user: identity from
+    // `profile`, requests from `requests`; the rest is their HR file.
+    team: [
+      emp("emp-me", "Aminata Ouédraogo", "Product Designer", "Design", "Issouf Sawadogo", "Ouagadougou", "2023-09-01", "CDI", 850_000, 1, { carryoverDays: 4 }),
+      emp("emp-mariam", "Mariam Traoré", "Managing Director", "Management", "—", "Ouagadougou", "2015-01-05", "CDI", 2_100_000, 3),
+      emp("emp-issouf", "Issouf Sawadogo", "Head of Product", "Product", "Mariam Traoré", "Ouagadougou", "2004-03-01", "CDI", 1_450_000, 4, { carryoverDays: 6 }),
+      emp("emp-boukary", "Boukary Compaoré", "Software Engineer", "Engineering", "Issouf Sawadogo", "Ouagadougou", "2021-06-14", "CDI", 950_000, 2, { carryoverDays: 2 }),
+      emp("emp-salimata", "Salimata Zongo", "Accountant", "Finance", "Mariam Traoré", "Ouagadougou", "2019-02-01", "CDI", 780_000, 2),
+      emp("emp-ousmane", "Ousmane Kaboré", "Sales Representative", "Sales", "Mariam Traoré", "Bobo-Dioulasso", "2025-11-17", "CDD", 450_000, 0, { contractEnd: "2026-12-31" }),
+      emp("emp-rasmata", "Rasmata Ilboudo", "Customer Support Agent", "Operations", "Salimata Zongo", "Ouagadougou", "2026-09-01", "CDI", 380_000, 1, { trialEnd: "2026-11-30" }),
+      emp("emp-yacouba", "Yacouba Ouattara", "Data Intern", "Engineering", "Boukary Compaoré", "Ouagadougou", "2026-07-01", "Intern", 150_000, 0, { contractEnd: "2026-12-20" }),
+    ],
+    teamRequests: [
+      teamReq("tr-1", "emp-issouf", "approved", "Annual leave", "2026-10-26", "2026-11-06", 10, "Family trip to Bobo-Dioulasso · Oct 31 and Nov 1 are holidays", "2026-10-02"),
+      teamReq("tr-2", "emp-boukary", "approved", "Sick", "2026-10-29", "2026-10-30", 2, "Malaria · medical certificate uploaded", "2026-10-29"),
+      teamReq("tr-3", "emp-salimata", "pending", "Annual leave", "2026-11-16", "2026-11-22", 7, "Before the year-end close", "2026-10-27"),
+      teamReq("tr-4", "emp-ousmane", "pending", "Family event", "2026-11-05", "2026-11-06", 2, "Brother’s wedding in Banfora", "2026-10-28"),
+      {
+        ...teamReq("tr-5", "emp-rasmata", "pending", "Personal", "2026-11-04", "2026-11-04", 0.375, "Administrative appointment (CNIB renewal)", "2026-10-30"),
+        duration: "3 hours",
+        allDay: false,
+        start: h(9),
+        end: h(12),
+      },
+      teamReq("tr-6", "emp-mariam", "approved", "Annual leave", "2026-12-21", "2027-01-03", 11, "End-of-year holidays", "2026-09-15"),
+      teamReq("tr-7", "emp-yacouba", "declined", "Sick", "2026-09-14", "2026-09-14", 1, "No medical certificate received", "2026-09-14"),
+      teamReq("tr-8", "emp-boukary", "approved", "Annual leave", "2026-07-06", "2026-07-19", 14, "Summer holidays", "2026-06-01"),
+      teamReq("tr-9", "emp-salimata", "pending", "Maternity", "2027-01-11", "2027-04-18", 95, "Expected due date Feb 15 · 14 weeks", "2026-10-20"),
+      teamReq("tr-10", "emp-issouf", "approved", "Family event", "2026-05-12", "2026-05-13", 2, "Funeral in Koudougou", "2026-05-11"),
+    ],
+  };
+}
+
+function emp(
+  id: string,
+  name: string,
+  jobTitle: string,
+  department: string,
+  manager: string,
+  location: string,
+  startDate: string,
+  contract: Employee["contract"],
+  monthlySalary: number,
+  dependents: number,
+  extra: Partial<Employee> = {},
+): Employee {
+  const slug = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/ /g, ".");
+  const n = id.length * 7919 + name.length * 104_729;
+  return {
+    id,
+    name,
+    initials: name
+      .split(" ")
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2),
+    email: `${slug}@example.com`,
+    phone: `+226 70 ${String(n % 100).padStart(2, "0")} ${String((n >> 3) % 100).padStart(2, "0")} ${String((n >> 6) % 100).padStart(2, "0")}`,
+    jobTitle,
+    department,
+    manager,
+    location,
+    startDate,
+    contract,
+    monthlySalary,
+    cnssNumber: `BF-${startDate.slice(0, 4)}-${String(n % 100_000).padStart(5, "0")}`,
+    dependents,
+    carryoverDays: 0,
+    ...extra,
+  };
+}
+
+function teamReq(
+  id: string,
+  employeeId: string,
+  status: TeamRequest["status"],
+  type: TeamRequest["type"],
+  from: string,
+  to: string,
+  days: number,
+  notes: string,
+  submitted: string,
+): TeamRequest {
+  return {
+    id,
+    employeeId,
+    status,
+    type,
+    duration: days === 1 ? "1 day" : `${days} days`,
+    days,
+    from,
+    to,
+    allDay: true,
+    notes,
+    submittedAt: `${submitted}T09:00:00.000Z`,
   };
 }
