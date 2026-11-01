@@ -105,7 +105,7 @@ src/
   app/                 routes (one folder per sidebar page)
   components/
     ui/                shadcn/ui primitives, themed
-    shell/             title bar, sidebar, search, notifications, shortcuts
+    shell/             sidebar (with search, notifications, help), mobile nav, shortcuts
     calendar/          header, time grid, all-day row, month view, popover
     time-off/          stats panel, requests table, status badge
     dialogs/           app-wide dialogs (request, event, details, holidays…)

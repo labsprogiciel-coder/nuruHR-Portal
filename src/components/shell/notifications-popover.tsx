@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { useNow } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
 
-export function NotificationsPopover() {
+export function NotificationsPopover({ side = "bottom", align = "end" }: { side?: "bottom" | "right"; align?: "start" | "end" }) {
   const router = useRouter();
   const notifications = useAppStore((s) => s.notifications);
   const markRead = useAppStore((s) => s.markNotificationRead);
@@ -35,7 +35,7 @@ export function NotificationsPopover() {
         </TooltipTrigger>
         <TooltipContent>Notifications</TooltipContent>
       </Tooltip>
-      <PopoverContent align="end" sideOffset={8} className="w-[360px] gap-0 p-0">
+      <PopoverContent side={side} align={align} sideOffset={8} collisionPadding={12} className="w-[min(360px,calc(100vw-24px))] gap-0 p-0">
         <div className="flex h-12 items-center gap-2 border-b border-hairline px-4">
           <span className="t-14 flex-1 text-fg">Notifications</span>
           {unread > 0 && (

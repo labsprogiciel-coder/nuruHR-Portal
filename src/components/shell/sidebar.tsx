@@ -7,6 +7,7 @@ import { useSyncExternalStore } from "react";
 import { LogOutIcon, SettingsIcon, UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Icon } from "@/components/icon";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,11 @@ import { Switch } from "@/components/ui/switch";
 import { activePage, NAV_GROUPS, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app-store";
+import { openOverlay } from "@/stores/overlay-store";
+import { GlobalSearchTrigger } from "./global-search";
+import { HelpMenu } from "./help-menu";
+import { NotificationsPopover } from "./notifications-popover";
+import { Brand } from "./workspace-switcher";
 
 const noopSubscribe = () => () => {};
 
@@ -140,10 +146,37 @@ export function SidebarBody({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Workspace, search, notifications, help and the main action. There is no top bar: each page
+ * shows its own header, and this sits at the top of the sidebar (or of the nav sheet on phones).
+ */
+export function SidebarHeader() {
+  return (
+    <div className="flex shrink-0 flex-col">
+      {/* Same height as the page headers, so the two line up */}
+      <div className="h-[68px] shrink-0 border-b border-hairline">
+        <Brand className="w-full border-r-0" />
+      </div>
+      <div className="flex flex-col gap-2 px-3 pt-3">
+        <div className="flex items-center gap-1.5">
+          <GlobalSearchTrigger />
+          <NotificationsPopover side="right" align="start" />
+          <HelpMenu />
+        </div>
+        <Button variant="brand" data-close-nav className="w-full gap-1.5 max-lg:h-10" onClick={() => openOverlay({ kind: "request" })}>
+          <Icon name="request-time-off" className="text-on-accent" />
+          Request time-off
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** Fixed 240px sidebar from the design; hidden below `lg`, where the nav sheet takes over. */
 export function Sidebar() {
   return (
     <aside className="hidden h-full w-60 shrink-0 flex-col overflow-hidden border-r border-hairline bg-app lg:flex">
+      <SidebarHeader />
       <SidebarBody />
     </aside>
   );

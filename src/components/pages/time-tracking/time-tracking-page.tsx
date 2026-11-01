@@ -22,6 +22,7 @@ import { EntryDialog } from "./entry-dialog";
 import { BILLABLE_COLOR, formatHours, NON_BILLABLE_COLOR, projectColor, sumMinutes } from "./shared";
 import { TimerBar, TimerCard } from "./timer-card";
 import { ChartLegend, WeekChart, type DayTotal } from "./week-chart";
+import { MobileNavButton } from "@/components/shell/mobile-nav";
 
 type DialogState = { open: boolean; session: number; entry?: TimeEntry };
 
@@ -85,11 +86,14 @@ export function TimeTrackingPage() {
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scroll-thin pb-24 md:pb-6" style={{ overflowY: "auto" }}>
         {/* Phones: title above the week switcher; the header scrolls away to give the list room */}
         <header className="z-10 flex shrink-0 flex-col gap-3 border-b border-hairline bg-surface px-4 py-3 md:sticky md:top-0 md:h-[68px] md:flex-row md:items-center md:py-0">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <h2 className="t-16 text-fg">{isCurrentWeek ? "This week" : `Week ${isoWeek(weekStart)}`}</h2>
-            <p className="t-14 max-w-[62ch] truncate text-fg-2" style={{ maxWidth: "35em" }}>
-              {formatRange(weekStart, weekEnd)} · {formatHours(totals.total)} logged
-            </p>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <MobileNavButton />
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <h1 className="t-16 text-fg">{isCurrentWeek ? "This week" : `Week ${isoWeek(weekStart)}`}</h1>
+              <p className="t-14 max-w-[62ch] truncate text-fg-2" style={{ maxWidth: "35em" }}>
+                {formatRange(weekStart, weekEnd)} · {formatHours(totals.total)} logged
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
