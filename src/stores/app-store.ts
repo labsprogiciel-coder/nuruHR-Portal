@@ -7,14 +7,16 @@ import { formatShort, monthName, rangeKeys, toKey } from "@/lib/dates";
 import { countedDays, durationLabel, LEAVE_COLORS, WORKDAY_MINUTES } from "@/lib/leave";
 import { createSeed, STATE_VERSION } from "@/lib/seed";
 import type { Payslip } from "@/lib/payroll";
-import { ME } from "@/lib/team";
+import { initialsOf, ME } from "@/lib/team";
 import type {
   Asset,
   AppNotification,
   AppState,
   Benefit,
   CalEvent,
+  Departure,
   DocumentFile,
+  Employee,
   Invoice,
   LeaveRequest,
   LeaveStatus,
@@ -68,6 +70,13 @@ type Actions = {
   /** Employee: flag a problem with something they hold. */
   reportAssetIssue: (id: string, note: string) => void;
   resolveAssetIssue: (id: string) => void;
+  /** HR: hire someone; returns their id. */
+  addEmployee: (e: Omit<Employee, "id" | "initials" | "departure">) => string;
+  /** HR: correct or update a file. The signed-in user's identity fields live in their profile. */
+  updateEmployee: (id: string, patch: Partial<Omit<Employee, "id" | "initials" | "departure">>) => void;
+  /** HR: record that someone is leaving; `returnAssets` takes back what they hold. */
+  recordDeparture: (id: string, departure: Omit<Departure, "recordedAt">, returnAssets: boolean) => void;
+  cancelDeparture: (id: string) => void;
   /** Admin: approve or decline anyone's request (the user's own go through setRequestStatus). */
   reviewRequest: (id: string, status: "approved" | "declined") => void;
   addHoliday: (date: string, name: string) => void;
@@ -475,6 +484,47 @@ export const useAppStore = create<AppStore>()(
                 : { ...x, issue: undefined },
           ),
         })),
+      addEmployee: (e) => {
+        const id = uid("emp");
+        set((s) => ({ team: [...s.team, { ...e, id, initials: initialsOf(e.name) }] }));
+        toast.success(`${e.name} added`, { description: `${e.jobTitle} · starts ${formatShort(e.startDate)}` });
+        return id;
+      },
+      updateEmployee: (id, patch) => {
+        const e = get().team.find((x) => x.id === id);
+        if (!e) return;
+        const next = { ...e, ...patch, initials: patch.name ? initialsOf(patch.name) : e.initials };
+        set((s) => {
+          const team = s.team.map((x) => (x.id === id ? next : x));
+          if (id !== ME) return { team };
+          // The signed-in user's identity is read from their profile, so keep the two in step.
+          const { name, email, phone, jobTitle, department, manager, location, startDate } = next;
+          return {
+            team,
+            profile: { ...s.profile, name, initials: initialsOf(name), email, phone, jobTitle, department, manager, location, startDate },
+          };
+        });
+        toast.success("Employee file updated", { description: next.name });
+      },
+      recordDeparture: (id, departure, returnAssets) => {
+        const e = get().team.find((x) => x.id === id);
+        if (!e || id === ME) return;
+        const held = get().assets.filter((a) => a.employeeId === id);
+        set((s) => ({
+          team: s.team.map((x) => (x.id === id ? { ...x, departure: { ...departure, recordedAt: new Date().toISOString() } } : x)),
+          assets: returnAssets
+            ? s.assets.map((a) => (a.employeeId === id ? { ...a, employeeId: null, assignedOn: undefined, status: a.status === "in-repair" ? a.status : "in-stock" } : a))
+            : s.assets,
+        }));
+        const back = returnAssets && held.length ? ` · ${held.length} ${held.length === 1 ? "item" : "items"} back in stock` : "";
+        toast.success("Departure recorded", { description: `${e.name} · last day ${formatShort(departure.date)}${back}` });
+      },
+      cancelDeparture: (id) => {
+        const e = get().team.find((x) => x.id === id);
+        if (!e?.departure) return;
+        set((s) => ({ team: s.team.map((x) => (x.id === id ? { ...x, departure: undefined } : x)) }));
+        toast("Departure cancelled", { description: `${e.name} is back on the team` });
+      },
       addHoliday: (date, name) => {
         set((s) => ({
           holidays: [...s.holidays, { id: uid("ho"), date, name }].sort((a, b) => a.date.localeCompare(b.date)),

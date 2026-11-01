@@ -1,23 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { SearchIcon, SearchXIcon } from "lucide-react";
+import { PlusIcon, SearchIcon, SearchXIcon, UsersIcon } from "lucide-react";
 import { FilterMenu, type FilterGroup } from "@/components/filter-menu";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatLong } from "@/lib/dates";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatLong, formatShort } from "@/lib/dates";
 import { yearsOfService } from "@/lib/labour-code";
 import { formatDays, plural } from "@/lib/leave";
 import { isOff } from "@/lib/team";
 import type { ContractType } from "@/lib/types";
 import { Card, EmptyState, PageHeader, PageRoot } from "@/components/pages/shared/page-chrome";
+import { EmployeeDialog } from "./employee-dialog";
 import { ContractBadge, EmployeeAvatar, useTeam } from "./shared";
 
 const CONTRACTS: ContractType[] = ["CDI", "CDD", "Apprentice", "Intern"];
 
 export function EmployeesPage() {
-  const { today, employees, stats, requests } = useTeam();
-  const departments = useMemo(() => [...new Set(employees.map((e) => e.department))].sort(), [employees]);
+  const router = useRouter();
+  const { today, employees, everyone, stats, requests } = useTeam();
+  const [view, setView] = useState<"current" | "former">("current");
+  const [adding, setAdding] = useState(false);
+  const former = useMemo(() => everyone.filter((e) => !employees.includes(e)), [everyone, employees]);
+  const shown = view === "current" ? employees : former;
+  const departments = useMemo(() => [...new Set(shown.map((e) => e.department))].sort(), [shown]);
   const [query, setQuery] = useState("");
   const [deptFilter, setDeptFilter] = useState<string[] | null>(null);
   const [contractFilter, setContractFilter] = useState<ContractType[]>(CONTRACTS);
@@ -25,7 +34,7 @@ export function EmployeesPage() {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return employees
+    return shown
       .filter(
         (e) =>
           selectedDepts.includes(e.department) &&
@@ -33,7 +42,7 @@ export function EmployeesPage() {
           (!q || [e.name, e.jobTitle, e.department, e.location, e.email].some((v) => v.toLowerCase().includes(q))),
       )
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [employees, query, selectedDepts, contractFilter]);
+  }, [shown, query, selectedDepts, contractFilter]);
 
   const groups: FilterGroup[] = [
     {
@@ -57,9 +66,35 @@ export function EmployeesPage() {
 
   return (
     <PageRoot>
-      <PageHeader title="Employees" description={`${plural(employees.length, "person", "people")} · ${plural(departments.length, "department", "departments")}`} />
+      <PageHeader
+        title="Employees"
+        description={`${plural(employees.length, "person", "people")} · ${plural(new Set(employees.map((e) => e.department)).size, "department", "departments")}`}
+        actions={
+          <Button variant="brand" onClick={() => setAdding(true)}>
+            <PlusIcon /> Add employee
+          </Button>
+        }
+      />
 
       <div className="z-10 flex flex-wrap items-center gap-2 border-b border-hairline bg-surface px-4 py-3 max-md:py-2.5">
+        <Tabs
+          value={view}
+          onValueChange={(v) => {
+            setView(v as "current" | "former");
+            setDeptFilter(null);
+          }}
+        >
+          <TabsList className="h-9">
+            <TabsTrigger value="current" className="t-14 salt h-8 gap-1.5 px-2.5 text-[14px] data-active:text-fg">
+              Current
+              <span className="t-12 text-placeholder tabular-nums">{employees.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="former" className="t-14 salt h-8 gap-1.5 px-2.5 text-[14px] data-active:text-fg">
+              Former
+              <span className="t-12 text-placeholder tabular-nums">{former.length}</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         <div className="relative max-md:min-w-0 max-md:flex-1">
           <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-icon" />
           <Input
@@ -89,9 +124,15 @@ export function EmployeesPage() {
             <span className="t-14 w-48 shrink-0 text-fg-2">Department</span>
             <span className="t-14 w-44 shrink-0 text-fg-2">Contract</span>
             <span className="t-14 w-36 shrink-0 text-fg-2">Started</span>
-            <span className="t-14 w-28 shrink-0 text-right text-fg-2">Leave left</span>
+            <span className="t-14 w-28 shrink-0 text-right text-fg-2">{view === "current" ? "Leave left" : "Left on"}</span>
           </div>
-          {rows.length === 0 ? (
+          {shown.length === 0 ? (
+            <EmptyState
+              icon={<UsersIcon />}
+              title={view === "current" ? "No one on the team yet" : "No former employees"}
+              hint={view === "current" ? "Add your first employee to start." : "People you record a departure for move here after their last day."}
+            />
+          ) : rows.length === 0 ? (
             <EmptyState icon={<SearchXIcon />} title="No one matches" hint="Try another name or reset the filters." />
           ) : (
             <ul className="divide-y divide-subtle">
@@ -108,7 +149,12 @@ export function EmployeesPage() {
                       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                         <span className="t-14 flex items-center gap-2 text-fg">
                           <span className="truncate">{e.name}</span>
-                          {off ? <span className="t-12 shrink-0 rounded-md bg-brand-tint px-1.5 py-0.5 text-brand">Away</span> : null}
+                          {off && view === "current" ? <span className="t-12 shrink-0 rounded-md bg-brand-tint px-1.5 py-0.5 text-brand">Away</span> : null}
+                          {e.departure && view === "current" ? (
+                            <span className="t-12 shrink-0 rounded-md bg-[var(--status-warning-tint)] px-1.5 py-0.5 text-[var(--status-warning)]">
+                              Leaving {formatShort(e.departure.date)}
+                            </span>
+                          ) : null}
                         </span>
                         <span className="t-12 truncate text-fg-2">
                           {e.jobTitle}
@@ -126,10 +172,17 @@ export function EmployeesPage() {
                         {formatLong(e.startDate)}
                         <span className="t-12 block text-fg-2">{years ? plural(years, "year", "years") : "This year"}</span>
                       </span>
-                      <span className="t-14 w-28 shrink-0 text-right text-fg tabular-nums max-md:w-auto">
-                        {formatDays(stats.get(e.id)?.available ?? 0)}
-                        <span className="t-12 block text-fg-2">days</span>
-                      </span>
+                      {view === "current" ? (
+                        <span className="t-14 w-28 shrink-0 text-right text-fg tabular-nums max-md:w-auto">
+                          {formatDays(stats.get(e.id)?.available ?? 0)}
+                          <span className="t-12 block text-fg-2">days</span>
+                        </span>
+                      ) : (
+                        <span className="t-14 w-28 shrink-0 text-right text-table max-md:w-auto">
+                          {e.departure ? formatShort(e.departure.date) : "—"}
+                          <span className="t-12 block text-fg-2">{e.departure?.reason}</span>
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -138,6 +191,7 @@ export function EmployeesPage() {
           )}
         </Card>
       </div>
+      <EmployeeDialog open={adding} team={everyone} onClose={() => setAdding(false)} onAdded={(id) => router.push(`/admin/employees/${id}`)} />
     </PageRoot>
   );
 }
