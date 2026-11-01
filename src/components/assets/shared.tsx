@@ -114,14 +114,15 @@ export const heldSince = (a: Asset) => (a.assignedOn ? `since ${formatLong(a.ass
 export function ReportIssueDialog({ asset, onClose }: { asset: Asset | null; onClose: () => void }) {
   const report = useAppStore((s) => s.reportAssetIssue);
   const [note, setNote] = useState("");
+  const close = () => {
+    setNote("");
+    onClose();
+  };
   return (
     <Dialog
       open={!!asset}
       onOpenChange={(v) => {
-        if (!v) {
-          onClose();
-          setNote("");
-        }
+        if (!v) close();
       }}
     >
       <DialogContent className="gap-5 p-5 sm:max-w-[440px]">
@@ -131,8 +132,7 @@ export function ReportIssueDialog({ asset, onClose }: { asset: Asset | null; onC
             e.preventDefault();
             if (!asset || !note.trim()) return;
             report(asset.id, note.trim());
-            setNote("");
-            onClose();
+            close();
           }}
         >
           <DialogHeader className="gap-1.5">
@@ -153,7 +153,7 @@ export function ReportIssueDialog({ asset, onClose }: { asset: Asset | null; onC
             />
           </Field>
           <DialogFooter className="-mx-5 -mb-5 bg-app px-5 py-3">
-            <Button type="button" onClick={onClose}>
+            <Button type="button" onClick={close}>
               Cancel
             </Button>
             <Button type="submit" variant="brand" disabled={!note.trim()}>

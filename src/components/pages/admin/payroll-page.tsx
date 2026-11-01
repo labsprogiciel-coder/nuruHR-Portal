@@ -44,11 +44,13 @@ export function PayrollPage() {
   const run: PayrollRun | undefined = runs[current];
   const status: keyof typeof STATUS = run ? run.status : "draft";
 
-  // Draft months follow today's salaries; validated and paid months show the frozen payslips.
+  // Draft months follow today's salaries for whoever is employed that month; validated and
+  // paid months show exactly the frozen payslips, so later hires don't appear in a closed month.
   const lines = useMemo(() => {
-    const live = Object.fromEntries(employees.map((e) => [e.id, computePayslip(e)]));
-    return run?.lines ? { ...live, ...run.lines } : live;
-  }, [employees, run]);
+    if (run?.lines) return run.lines;
+    const employed = employees.filter((e) => e.startDate.slice(0, 7) <= current && (!e.contractEnd || e.contractEnd.slice(0, 7) >= current));
+    return Object.fromEntries(employed.map((e) => [e.id, computePayslip(e)]));
+  }, [employees, run, current]);
   const staff = employees.filter((e) => lines[e.id]);
   const totals = payrollTotals(staff.map((e) => lines[e.id]));
   const step = (n: number) => setMonth(addMonths(current + "-01", n).slice(0, 7));
@@ -62,7 +64,9 @@ export function PayrollPage() {
       }),
       ["Total", "", totals.gross, totals.cnssEmployee, totals.iuts, totals.net, totals.cnssEmployer, totals.employerCost],
     ];
-    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    // Text starting with = + - @ tab or CR would run as a formula in a spreadsheet.
+    const cell = (v: string | number) => (typeof v === "string" && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v));
+    const csv = rows.map((r) => r.map((v) => `"${cell(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = Object.assign(document.createElement("a"), { href: url, download: `payroll-${current}.csv` });
     a.click();

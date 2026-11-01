@@ -143,6 +143,10 @@ function eventsForRequest(req: LeaveRequest): CalEvent[] {
 // localStorage throws when the ~5MB quota is full (e.g. large uploaded
 // documents). Keep the app working in memory and say so once.
 let warnedQuota = false;
+/** Copies the seed's executive flag onto saved employees that predate it. */
+const withExecutive = (team: AppState["team"], seedTeam: AppState["team"]) =>
+  team.map((e) => (e.executive === undefined && seedTeam.find((x) => x.id === e.id)?.executive ? { ...e, executive: true } : e));
+
 const safeLocalStorage = {
   getItem: (name: string) => localStorage.getItem(name),
   removeItem: (name: string) => localStorage.removeItem(name),
@@ -615,9 +619,16 @@ export const useAppStore = create<AppStore>()(
           return { ...s, team: seed.team, teamRequests: seed.teamRequests, assets: seed.assets, version: STATE_VERSION };
         }
         // v6: company equipment; keep everything else.
-        if (version < 6) return { ...s, assets: createSeed().assets, payrollRuns: createSeed().payrollRuns, version: STATE_VERSION };
+        // v6 and v7 also bring the executive flag (it changes the IUTS deduction) onto saved teams.
+        if (version < 6) {
+          const seed = createSeed();
+          return { ...s, team: withExecutive(s.team, seed.team), assets: seed.assets, payrollRuns: seed.payrollRuns, version: STATE_VERSION };
+        }
         // v7: payroll runs; keep everything else.
-        if (version < 7) return { ...s, payrollRuns: createSeed().payrollRuns, version: STATE_VERSION };
+        if (version < 7) {
+          const seed = createSeed();
+          return { ...s, team: withExecutive(s.team, seed.team), payrollRuns: seed.payrollRuns, version: STATE_VERSION };
+        }
         return { ...s, version: STATE_VERSION };
       },
       partialize: (s) => {
