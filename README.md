@@ -63,8 +63,10 @@ Open http://localhost:3000. To return to the exact design state, use
 - **Admin (HR)** — HR overview (headcount, approvals waiting, who's off, monthly
   payroll in FCFA, contract and trial-period ends), an approvals inbox across the
   team with each request's effect on the balance under the Labour Code, an
-  employee directory with filters, and an employee file (contract, CNSS number,
-  salary, seniority, leave balance and history). The signed-in employee is part
+  employee directory with filters, and an employee file in tabs: Info (job and
+  contract), Contact, Pay (salary, allowances, net estimate, salary advances),
+  Equipment, Benefits, Documents (payslips, work certificate) and Leave (balance
+  and history). The signed-in employee is part
   of the team, so approving their own request here updates their Time off page.
 - **Employee management** — add an employee (identity, job, contract type and
   end date, trial period, salary with a live net-pay estimate, dependents,
