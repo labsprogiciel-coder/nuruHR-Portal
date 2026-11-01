@@ -7,14 +7,18 @@ import { Button } from "@/components/ui/button";
 import { formatLong, formatShort } from "@/lib/dates";
 import { DEDUCTED, FAMILY_EVENT_DAYS } from "@/lib/labour-code";
 import { formatDays, LEAVE_COLORS, type LeaveStats } from "@/lib/leave";
-import { allRequests, employeeLeaveStats, employees as withProfile } from "@/lib/team";
+import { allRequests, employeeLeaveStats, employees as withProfile, isCurrent } from "@/lib/team";
 import type { Employee, TeamRequest } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useToday } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
 import { StatusBadge } from "@/components/time-off/status-badge";
 
-/** The team, every leave request, and each employee's balance, recomputed only when data changes. */
+/**
+ * The team, every leave request, and each employee's balance, recomputed only when data changes.
+ * `employees` is who works here today; `everyone` adds former employees, whose files stay
+ * reachable (byId covers both).
+ */
 export function useTeam() {
   const today = useToday();
   const team = useAppStore((s) => s.team);
@@ -26,10 +30,11 @@ export function useTeam() {
 
   return useMemo(() => {
     const state = { team, teamRequests, requests, profile, settings, holidays };
-    const employees = withProfile(state);
-    const byId = new Map(employees.map((e) => [e.id, e]));
-    const stats = new Map<string, LeaveStats>(employees.map((e) => [e.id, employeeLeaveStats(e, state, today)]));
-    return { today, employees, byId, stats, requests: allRequests(state) };
+    const everyone = withProfile(state);
+    const employees = everyone.filter((e) => isCurrent(e, today));
+    const byId = new Map(everyone.map((e) => [e.id, e]));
+    const stats = new Map<string, LeaveStats>(everyone.map((e) => [e.id, employeeLeaveStats(e, state, today)]));
+    return { today, employees, everyone, byId, stats, requests: allRequests(state) };
   }, [team, teamRequests, requests, profile, settings, holidays, today]);
 }
 

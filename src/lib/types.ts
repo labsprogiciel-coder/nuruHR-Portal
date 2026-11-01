@@ -181,6 +181,18 @@ export type Employee = {
   carryoverDays: number;
   /** Executive staff (cadre): a smaller flat deduction for professional expenses in IUTS */
   executive?: boolean;
+  /** Set once HR records that the person is leaving; they stay on file as a former employee */
+  departure?: Departure;
+};
+
+export type DepartureReason = "Resignation" | "End of contract" | "Dismissal" | "Mutual agreement" | "Retirement" | "Other";
+
+export type Departure = {
+  /** Last day worked (YYYY-MM-DD); from the next day they count as a former employee */
+  date: string;
+  reason: DepartureReason;
+  note?: string;
+  recordedAt: string;
 };
 
 /** A month's payroll once HR has acted on it; months with no entry are drafts. */

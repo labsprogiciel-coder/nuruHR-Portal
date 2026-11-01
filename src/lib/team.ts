@@ -28,6 +28,29 @@ export function employees(s: Pick<TeamState, "team" | "profile">): Employee[] {
   );
 }
 
+/** Still on the payroll today: no departure, or a last day that hasn't passed yet. */
+export function isCurrent(e: Pick<Employee, "departure">, today: string) {
+  return !e.departure || e.departure.date >= today;
+}
+
+/** Worked at least part of `month` ("YYYY-MM"): started by its end and hadn't left or reached the end of the contract before it began. */
+export function employedIn(e: Pick<Employee, "startDate" | "contractEnd" | "departure">, month: string) {
+  const end = e.departure?.date ?? e.contractEnd;
+  return e.startDate.slice(0, 7) <= month && (!end || end.slice(0, 7) >= month);
+}
+
+/** "AO" for "Amina Ouédraogo": first letters of the first two words. */
+export function initialsOf(name: string) {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  );
+}
+
 /** Every leave request in the company: the user's own (as ME) and their colleagues'. */
 export function allRequests(s: Pick<TeamState, "requests" | "teamRequests">): TeamRequest[] {
   return [...s.requests.map((r) => ({ ...r, employeeId: ME })), ...s.teamRequests];
@@ -59,7 +82,7 @@ export type HrAlert = {
   id: string;
   employeeId: string;
   date: string;
-  kind: "contract-end" | "trial-end" | "anniversary";
+  kind: "contract-end" | "trial-end" | "anniversary" | "departure";
   label: string;
 };
 
@@ -69,6 +92,10 @@ export function hrAlerts(list: Employee[], today: string, withinDays = 60): HrAl
   const soon = (d?: string): d is string => !!d && d >= today && d <= until;
   const alerts: HrAlert[] = [];
   for (const e of list) {
+    if (soon(e.departure?.date)) {
+      alerts.push({ id: `${e.id}-leaving`, employeeId: e.id, date: e.departure.date, kind: "departure", label: `Last day · ${e.departure.reason.toLowerCase()}` });
+      continue;
+    }
     if (soon(e.contractEnd)) {
       alerts.push({ id: `${e.id}-end`, employeeId: e.id, date: e.contractEnd, kind: "contract-end", label: `${e.contract} ends` });
     }

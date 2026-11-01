@@ -66,6 +66,14 @@ Open http://localhost:3000. To return to the exact design state, use
   employee directory with filters, and an employee file (contract, CNSS number,
   salary, seniority, leave balance and history). The signed-in employee is part
   of the team, so approving their own request here updates their Time off page.
+- **Employee management** — add an employee (identity, job, contract type and
+  end date, trial period, salary with a live net-pay estimate, dependents,
+  executive status, CNSS number, carried-over leave), edit any file (editing your
+  own also updates your profile), and record a departure: last day, reason, a
+  "to settle" summary (seniority, leave not taken with an estimated payout,
+  equipment to take back) and a printable French work certificate (certificat de
+  travail). People who left move to a Former tab and drop out of payroll after
+  their last month; upcoming departures show on the HR overview.
 - **Payroll (Burkina Faso)** — a monthly run for the whole team: gross, employee
   CNSS (5.5%, capped at 800 000 FCFA), IUTS after the flat deduction and family
   reduction, net pay, employer CNSS (16%) and cost, with a payslip breakdown per

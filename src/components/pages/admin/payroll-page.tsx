@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { addMonths, formatLong, monthName } from "@/lib/dates";
 import { plural } from "@/lib/leave";
+import { employedIn } from "@/lib/team";
 import { formatMoney } from "@/lib/money";
 import { computePayslip, PAYROLL_RULES, payrollTotals, type Payslip } from "@/lib/payroll";
 import type { Employee, PayrollRun } from "@/lib/types";
@@ -31,7 +32,7 @@ const STATUS: Record<"draft" | PayrollRun["status"], { label: string; tone: stri
 };
 
 export function PayrollPage() {
-  const { today, employees } = useTeam();
+  const { today, everyone } = useTeam();
   const runs = useAppStore((s) => s.payrollRuns);
   const validate = useAppStore((s) => s.validatePayroll);
   const reopen = useAppStore((s) => s.reopenPayroll);
@@ -48,10 +49,11 @@ export function PayrollPage() {
   // paid months show exactly the frozen payslips, so later hires don't appear in a closed month.
   const lines = useMemo(() => {
     if (run?.lines) return run.lines;
-    const employed = employees.filter((e) => e.startDate.slice(0, 7) <= current && (!e.contractEnd || e.contractEnd.slice(0, 7) >= current));
+    const employed = everyone.filter((e) => employedIn(e, current));
     return Object.fromEntries(employed.map((e) => [e.id, computePayslip(e)]));
-  }, [employees, run, current]);
-  const staff = employees.filter((e) => lines[e.id]);
+  }, [everyone, run, current]);
+  // Former employees stay in the months they were paid for
+  const staff = everyone.filter((e) => lines[e.id]);
   const totals = payrollTotals(staff.map((e) => lines[e.id]));
   const step = (n: number) => setMonth(addMonths(current + "-01", n).slice(0, 7));
 
