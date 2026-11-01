@@ -10,6 +10,7 @@ export type IconName =
   | "nav-benefits"
   | "nav-invoice"
   | "nav-withdrawal"
+  | "nav-assets"
   | "workspace-switcher"
   | "search"
   | "help"

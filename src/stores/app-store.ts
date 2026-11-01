@@ -3,10 +3,12 @@
 import { toast } from "sonner";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { formatShort, rangeKeys } from "@/lib/dates";
+import { formatShort, rangeKeys, toKey } from "@/lib/dates";
 import { countedDays, durationLabel, LEAVE_COLORS, WORKDAY_MINUTES } from "@/lib/leave";
 import { createSeed, STATE_VERSION } from "@/lib/seed";
+import { ME } from "@/lib/team";
 import type {
+  Asset,
   AppNotification,
   AppState,
   Benefit,
@@ -50,6 +52,14 @@ type Actions = {
   submitRequest: (input: RequestInput, existingId?: string) => LeaveRequest;
   setRequestStatus: (id: string, status: LeaveStatus) => void;
   deleteRequest: (id: string) => void;
+  // equipment
+  addAsset: (asset: Omit<Asset, "id" | "status" | "assignedOn" | "employeeId" | "issue">) => void;
+  /** Hand an asset to someone, or return it to stock (null). */
+  assignAsset: (id: string, employeeId: string | null) => void;
+  sendAssetToRepair: (id: string) => void;
+  /** Employee: flag a problem with something they hold. */
+  reportAssetIssue: (id: string, note: string) => void;
+  resolveAssetIssue: (id: string) => void;
   /** Admin: approve or decline anyone's request (the user's own go through setRequestStatus). */
   reviewRequest: (id: string, status: "approved" | "declined") => void;
   addHoliday: (date: string, name: string) => void;
@@ -166,6 +176,7 @@ const TRACKED = [
   "benefits",
   "team",
   "teamRequests",
+  "assets",
 ] as const satisfies readonly (keyof AppState)[];
 type TrackedKey = (typeof TRACKED)[number];
 type Snapshot = Pick<AppState, TrackedKey>;
@@ -190,6 +201,7 @@ const KEY_LABELS: Record<TrackedKey, string> = {
   benefits: "Benefits",
   team: "Employees",
   teamRequests: "Leave request",
+  assets: "Equipment",
 };
 
 function snapshotOf(state: AppState): Snapshot {
@@ -377,6 +389,51 @@ export const useAppStore = create<AppStore>()(
         if (status === "approved") toast.success("Request approved", { description, action: undoReview });
         else toast.error("Request declined", { description, action: undoReview });
       },
+      addAsset: (a) => {
+        set((s) => ({ assets: [...s.assets, { ...a, id: uid("as"), employeeId: null, status: "in-stock" }] }));
+        toast.success("Asset added to stock", { description: a.name });
+      },
+      assignAsset: (id, employeeId) => {
+        const a = get().assets.find((x) => x.id === id);
+        if (!a) return;
+        const today = toKey(new Date());
+        set((s) => ({
+          assets: s.assets.map((x) =>
+            x.id === id
+              ? { ...x, employeeId, assignedOn: employeeId ? today : undefined, status: employeeId ? "in-use" : "in-stock" }
+              : x,
+          ),
+        }));
+        const to = employeeId ? get().team.find((e) => e.id === employeeId)?.name : null;
+        toast.success(to ? `Assigned to ${to}` : "Returned to stock", { description: a.name });
+        if (employeeId === ME) {
+          get().notify({ title: "New equipment assigned", body: `${a.name} is now registered to you.`, href: "/dashboard" });
+        }
+      },
+      sendAssetToRepair: (id) => {
+        const a = get().assets.find((x) => x.id === id);
+        if (!a) return;
+        set((s) => ({ assets: s.assets.map((x) => (x.id === id ? { ...x, employeeId: null, assignedOn: undefined, status: "in-repair" } : x)) }));
+        toast("Sent to repair", { description: a.name });
+      },
+      reportAssetIssue: (id, note) => {
+        const a = get().assets.find((x) => x.id === id);
+        if (!a) return;
+        set((s) => ({
+          assets: s.assets.map((x) => (x.id === id ? { ...x, issue: { note, reportedAt: new Date().toISOString() } } : x)),
+        }));
+        toast.success("Problem reported", { description: `HR will follow up on your ${a.name}.` });
+      },
+      resolveAssetIssue: (id) =>
+        set((s) => ({
+          assets: s.assets.map((x) =>
+            x.id !== id
+              ? x
+              : x.status === "in-repair"
+                ? { ...x, issue: undefined, status: "in-stock", condition: "Good" }
+                : { ...x, issue: undefined },
+          ),
+        })),
       addHoliday: (date, name) => {
         set((s) => ({
           holidays: [...s.holidays, { id: uid("ho"), date, name }].sort((a, b) => a.date.localeCompare(b.date)),
@@ -518,8 +575,10 @@ export const useAppStore = create<AppStore>()(
         // v5: the admin view's team and their requests; keep everything else.
         if (version < 5) {
           const seed = createSeed();
-          return { ...s, team: seed.team, teamRequests: seed.teamRequests, version: STATE_VERSION };
+          return { ...s, team: seed.team, teamRequests: seed.teamRequests, assets: seed.assets, version: STATE_VERSION };
         }
+        // v6: company equipment; keep everything else.
+        if (version < 6) return { ...s, assets: createSeed().assets, version: STATE_VERSION };
         return { ...s, version: STATE_VERSION };
       },
       partialize: (s) => {

@@ -14,6 +14,7 @@ import {
   TimerIcon,
   UserRoundIcon,
 } from "lucide-react";
+import { MyEquipmentCard } from "@/components/assets/my-equipment-card";
 import { Icon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -87,6 +88,7 @@ export function DashboardPage() {
         <div className="grid grid-cols-1 items-start gap-3 md:gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="grid min-w-0 gap-3 md:gap-4">
             <UpcomingCard />
+            <MyEquipmentCard />
             <WeekHoursCard />
           </div>
           <div className="grid min-w-0 gap-3 md:gap-4">

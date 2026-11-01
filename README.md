@@ -66,6 +66,11 @@ Open http://localhost:3000. To return to the exact design state, use
   employee directory with filters, and an employee file (contract, CNSS number,
   salary, seniority, leave balance and history). The signed-in employee is part
   of the team, so approving their own request here updates their Time off page.
+- **Equipment** — employees see the company property registered to them
+  (laptop, phone, tablet, vehicle, motorbike) on their dashboard and can report
+  a problem with it. Admins get an equipment list (in use, in stock, in repair,
+  problems; values in FCFA) to add items, assign or reassign them, return them
+  to stock and track repairs, and each employee file lists what that person holds.
 - **Other pages** — Dashboard, Analytics, Personal details, Documents, Time
   tracking, Benefits, Invoice, Withdrawal methods, Settings.
 

@@ -179,6 +179,28 @@ export type Employee = {
   carryoverDays: number;
 };
 
+export type AssetCategory = "Laptop" | "Phone" | "Tablet" | "Vehicle" | "Motorbike" | "Other";
+
+/** Company equipment. Unassigned assets (no employeeId) are in stock, or in repair. */
+export type Asset = {
+  id: string;
+  category: AssetCategory;
+  /** Make and model, e.g. "Dell Latitude 5440" */
+  name: string;
+  /** Serial number, IMEI or registration plate */
+  identifier: string;
+  employeeId: string | null;
+  /** Date it was handed to the current holder */
+  assignedOn?: string;
+  status: "in-use" | "in-stock" | "in-repair";
+  condition: "New" | "Good" | "Fair" | "Damaged";
+  /** Purchase value in FCFA */
+  value: number;
+  purchasedOn: string;
+  /** A problem the holder reported, waiting for the admin */
+  issue?: { note: string; reportedAt: string };
+};
+
 /** A colleague's leave request. The signed-in user's own requests live in `requests`. */
 export type TeamRequest = LeaveRequest & { employeeId: string };
 
@@ -200,4 +222,5 @@ export type AppState = {
   benefits: Benefit[];
   team: Employee[];
   teamRequests: TeamRequest[];
+  assets: Asset[];
 };
