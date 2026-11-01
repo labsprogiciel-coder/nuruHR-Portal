@@ -1,3 +1,5 @@
+import type { Payslip } from "./payroll";
+
 export type EventColor = "green" | "purple" | "cyan" | "orange" | "pink" | "blue";
 
 /** Dates are local calendar days stored as "YYYY-MM-DD"; times are minutes from midnight. */
@@ -177,6 +179,18 @@ export type Employee = {
   cnssNumber: string;
   dependents: number;
   carryoverDays: number;
+  /** Executive staff (cadre): a smaller flat deduction for professional expenses in IUTS */
+  executive?: boolean;
+};
+
+/** A month's payroll once HR has acted on it; months with no entry are drafts. */
+export type PayrollRun = {
+  month: string;
+  status: "validated" | "paid";
+  validatedAt: string;
+  paidAt?: string;
+  /** Payslips frozen at validation, by employee id, so later raises don't rewrite a closed month */
+  lines?: Record<string, Payslip>;
 };
 
 export type AssetCategory = "Laptop" | "Phone" | "Tablet" | "Vehicle" | "Motorbike" | "Other";
@@ -223,4 +237,6 @@ export type AppState = {
   team: Employee[];
   teamRequests: TeamRequest[];
   assets: Asset[];
+  /** Keyed by month, "YYYY-MM" */
+  payrollRuns: Record<string, PayrollRun>;
 };

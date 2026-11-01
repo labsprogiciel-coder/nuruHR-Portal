@@ -27,6 +27,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin", label: "HR overview", icon: "nav-dashboard" },
       { href: "/admin/approvals", label: "Approvals", icon: "status-approved" },
       { href: "/admin/employees", label: "Employees", icon: "nav-personal" },
+      { href: "/admin/payroll", label: "Payroll", icon: "nav-withdrawal" },
       { href: "/admin/assets", label: "Equipment", icon: "nav-assets" },
     ],
   },

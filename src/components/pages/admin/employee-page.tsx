@@ -8,6 +8,7 @@ import { formatLong } from "@/lib/dates";
 import { seniorityBonusDays, yearsOfService } from "@/lib/labour-code";
 import { formatDays, plural } from "@/lib/leave";
 import { formatMoney } from "@/lib/money";
+import { computePayslip } from "@/lib/payroll";
 import { inDays, ME } from "@/lib/team";
 import type { Asset } from "@/lib/types";
 import { useAppStore } from "@/stores/app-store";
@@ -101,6 +102,7 @@ export function EmployeePage({ id }: { id: string }) {
                   ["Start date", `${formatLong(e.startDate)} · ${years ? plural(years, "year", "years") : "less than a year"}`],
                   ...(e.trialEnd && e.trialEnd >= today ? ([["Trial period", `Ends ${formatLong(e.trialEnd)}`]] as [string, string][]) : []),
                   ["Gross monthly salary", formatMoney(e.monthlySalary)],
+                  ["Net monthly pay", `${formatMoney(computePayslip(e).net)} · estimate after CNSS and IUTS`],
                   ["CNSS number", <span key="cnss" className="font-mono text-[13px]">{e.cnssNumber}</span>],
                   ["Dependents", e.dependents ? plural(e.dependents, "person", "people") : "None"],
                   ["Carryover days", e.id === ME ? `${formatDays(s.carryover)} (from their settings)` : formatDays(e.carryoverDays)],

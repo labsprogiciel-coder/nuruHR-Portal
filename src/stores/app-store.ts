@@ -3,9 +3,10 @@
 import { toast } from "sonner";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { formatShort, rangeKeys, toKey } from "@/lib/dates";
+import { formatShort, monthName, rangeKeys, toKey } from "@/lib/dates";
 import { countedDays, durationLabel, LEAVE_COLORS, WORKDAY_MINUTES } from "@/lib/leave";
 import { createSeed, STATE_VERSION } from "@/lib/seed";
+import type { Payslip } from "@/lib/payroll";
 import { ME } from "@/lib/team";
 import type {
   Asset,
@@ -52,6 +53,13 @@ type Actions = {
   submitRequest: (input: RequestInput, existingId?: string) => LeaveRequest;
   setRequestStatus: (id: string, status: LeaveStatus) => void;
   deleteRequest: (id: string) => void;
+  // payroll
+  /** Lock a month's figures for payment. */
+  validatePayroll: (month: string, lines: Record<string, Payslip>) => void;
+  /** Back to draft, before it's paid. */
+  reopenPayroll: (month: string) => void;
+  /** Record salaries as paid; the signed-in employee gets their payslip in Documents. */
+  markPayrollPaid: (month: string) => void;
   // equipment
   addAsset: (asset: Omit<Asset, "id" | "status" | "assignedOn" | "employeeId" | "issue">) => void;
   /** Hand an asset to someone, or return it to stock (null). */
@@ -177,6 +185,7 @@ const TRACKED = [
   "team",
   "teamRequests",
   "assets",
+  "payrollRuns",
 ] as const satisfies readonly (keyof AppState)[];
 type TrackedKey = (typeof TRACKED)[number];
 type Snapshot = Pick<AppState, TrackedKey>;
@@ -202,6 +211,7 @@ const KEY_LABELS: Record<TrackedKey, string> = {
   team: "Employees",
   teamRequests: "Leave request",
   assets: "Equipment",
+  payrollRuns: "Payroll",
 };
 
 function snapshotOf(state: AppState): Snapshot {
@@ -388,6 +398,33 @@ export const useAppStore = create<AppStore>()(
         };
         if (status === "approved") toast.success("Request approved", { description, action: undoReview });
         else toast.error("Request declined", { description, action: undoReview });
+      },
+      validatePayroll: (month, lines) => {
+        set((s) => ({
+          payrollRuns: { ...s.payrollRuns, [month]: { month, status: "validated", validatedAt: new Date().toISOString(), lines } },
+        }));
+        toast.success("Payroll validated", { description: `${monthName(month + "-01")} ${month.slice(0, 4)} is ready to pay` });
+      },
+      reopenPayroll: (month) =>
+        set((s) => {
+          const runs = { ...s.payrollRuns };
+          delete runs[month];
+          return { payrollRuns: runs };
+        }),
+      markPayrollPaid: (month) => {
+        const run = get().payrollRuns[month];
+        if (!run) return;
+        const label = `${monthName(month + "-01")} ${month.slice(0, 4)}`;
+        const now = new Date().toISOString();
+        set((s) => ({
+          payrollRuns: { ...s.payrollRuns, [month]: { ...run, status: "paid", paidAt: now } },
+          documents: [
+            { id: uid("doc"), name: `Payslip – ${label}.pdf`, category: "Payslip", size: 120_000, uploadedAt: now },
+            ...s.documents,
+          ],
+        }));
+        toast.success("Salaries marked as paid", { description: `${label} payslips are ready; yours is in Documents` });
+        get().notify({ title: `Your ${label} payslip is ready`, body: "Find it in Documents.", href: "/documents" });
       },
       addAsset: (a) => {
         set((s) => ({ assets: [...s.assets, { ...a, id: uid("as"), employeeId: null, status: "in-stock" }] }));
@@ -578,7 +615,9 @@ export const useAppStore = create<AppStore>()(
           return { ...s, team: seed.team, teamRequests: seed.teamRequests, assets: seed.assets, version: STATE_VERSION };
         }
         // v6: company equipment; keep everything else.
-        if (version < 6) return { ...s, assets: createSeed().assets, version: STATE_VERSION };
+        if (version < 6) return { ...s, assets: createSeed().assets, payrollRuns: createSeed().payrollRuns, version: STATE_VERSION };
+        // v7: payroll runs; keep everything else.
+        if (version < 7) return { ...s, payrollRuns: createSeed().payrollRuns, version: STATE_VERSION };
         return { ...s, version: STATE_VERSION };
       },
       partialize: (s) => {
