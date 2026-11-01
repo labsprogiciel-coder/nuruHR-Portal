@@ -62,8 +62,10 @@ export function TitleBar() {
     <header className="flex h-[53px] w-full shrink-0 items-center overflow-hidden border-b border-hairline bg-app pr-3 pt-[env(safe-area-inset-top)] sm:pr-4">
       <Brand className="hidden lg:flex" />
       <MobileNav />
+      {/* Each page shows its own title in its header, so the bar keeps the name for screen
+          readers only instead of repeating it on screen. */}
       <div className="flex h-full min-w-0 flex-1 items-center overflow-hidden pl-2 lg:pl-4">
-        <h1 className="t-16 min-w-0 flex-1 truncate font-medium text-fg">{pageTitle(pathname)}</h1>
+        <h1 className="sr-only">{pageTitle(pathname)}</h1>
       </div>
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         <GlobalSearchTrigger />
