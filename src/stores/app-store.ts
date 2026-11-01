@@ -3,10 +3,13 @@
 import { toast } from "sonner";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { formatShort, rangeKeys } from "@/lib/dates";
+import { formatShort, monthName, rangeKeys, toKey } from "@/lib/dates";
 import { countedDays, durationLabel, LEAVE_COLORS, WORKDAY_MINUTES } from "@/lib/leave";
 import { createSeed, STATE_VERSION } from "@/lib/seed";
+import type { Payslip } from "@/lib/payroll";
+import { ME } from "@/lib/team";
 import type {
+  Asset,
   AppNotification,
   AppState,
   Benefit,
@@ -50,6 +53,21 @@ type Actions = {
   submitRequest: (input: RequestInput, existingId?: string) => LeaveRequest;
   setRequestStatus: (id: string, status: LeaveStatus) => void;
   deleteRequest: (id: string) => void;
+  // payroll
+  /** Lock a month's figures for payment. */
+  validatePayroll: (month: string, lines: Record<string, Payslip>) => void;
+  /** Back to draft, before it's paid. */
+  reopenPayroll: (month: string) => void;
+  /** Record salaries as paid; the signed-in employee gets their payslip in Documents. */
+  markPayrollPaid: (month: string) => void;
+  // equipment
+  addAsset: (asset: Omit<Asset, "id" | "status" | "assignedOn" | "employeeId" | "issue">) => void;
+  /** Hand an asset to someone, or return it to stock (null). */
+  assignAsset: (id: string, employeeId: string | null) => void;
+  sendAssetToRepair: (id: string) => void;
+  /** Employee: flag a problem with something they hold. */
+  reportAssetIssue: (id: string, note: string) => void;
+  resolveAssetIssue: (id: string) => void;
   /** Admin: approve or decline anyone's request (the user's own go through setRequestStatus). */
   reviewRequest: (id: string, status: "approved" | "declined") => void;
   addHoliday: (date: string, name: string) => void;
@@ -125,6 +143,10 @@ function eventsForRequest(req: LeaveRequest): CalEvent[] {
 // localStorage throws when the ~5MB quota is full (e.g. large uploaded
 // documents). Keep the app working in memory and say so once.
 let warnedQuota = false;
+/** Copies the seed's executive flag onto saved employees that predate it. */
+const withExecutive = (team: AppState["team"], seedTeam: AppState["team"]) =>
+  team.map((e) => (e.executive === undefined && seedTeam.find((x) => x.id === e.id)?.executive ? { ...e, executive: true } : e));
+
 const safeLocalStorage = {
   getItem: (name: string) => localStorage.getItem(name),
   removeItem: (name: string) => localStorage.removeItem(name),
@@ -166,6 +188,8 @@ const TRACKED = [
   "benefits",
   "team",
   "teamRequests",
+  "assets",
+  "payrollRuns",
 ] as const satisfies readonly (keyof AppState)[];
 type TrackedKey = (typeof TRACKED)[number];
 type Snapshot = Pick<AppState, TrackedKey>;
@@ -190,6 +214,8 @@ const KEY_LABELS: Record<TrackedKey, string> = {
   benefits: "Benefits",
   team: "Employees",
   teamRequests: "Leave request",
+  assets: "Equipment",
+  payrollRuns: "Payroll",
 };
 
 function snapshotOf(state: AppState): Snapshot {
@@ -377,6 +403,78 @@ export const useAppStore = create<AppStore>()(
         if (status === "approved") toast.success("Request approved", { description, action: undoReview });
         else toast.error("Request declined", { description, action: undoReview });
       },
+      validatePayroll: (month, lines) => {
+        set((s) => ({
+          payrollRuns: { ...s.payrollRuns, [month]: { month, status: "validated", validatedAt: new Date().toISOString(), lines } },
+        }));
+        toast.success("Payroll validated", { description: `${monthName(month + "-01")} ${month.slice(0, 4)} is ready to pay` });
+      },
+      reopenPayroll: (month) =>
+        set((s) => {
+          const runs = { ...s.payrollRuns };
+          delete runs[month];
+          return { payrollRuns: runs };
+        }),
+      markPayrollPaid: (month) => {
+        const run = get().payrollRuns[month];
+        if (!run) return;
+        const label = `${monthName(month + "-01")} ${month.slice(0, 4)}`;
+        const now = new Date().toISOString();
+        set((s) => ({
+          payrollRuns: { ...s.payrollRuns, [month]: { ...run, status: "paid", paidAt: now } },
+          documents: [
+            { id: uid("doc"), name: `Payslip – ${label}.pdf`, category: "Payslip", size: 120_000, uploadedAt: now },
+            ...s.documents,
+          ],
+        }));
+        toast.success("Salaries marked as paid", { description: `${label} payslips are ready; yours is in Documents` });
+        get().notify({ title: `Your ${label} payslip is ready`, body: "Find it in Documents.", href: "/documents" });
+      },
+      addAsset: (a) => {
+        set((s) => ({ assets: [...s.assets, { ...a, id: uid("as"), employeeId: null, status: "in-stock" }] }));
+        toast.success("Asset added to stock", { description: a.name });
+      },
+      assignAsset: (id, employeeId) => {
+        const a = get().assets.find((x) => x.id === id);
+        if (!a) return;
+        const today = toKey(new Date());
+        set((s) => ({
+          assets: s.assets.map((x) =>
+            x.id === id
+              ? { ...x, employeeId, assignedOn: employeeId ? today : undefined, status: employeeId ? "in-use" : "in-stock" }
+              : x,
+          ),
+        }));
+        const to = employeeId ? get().team.find((e) => e.id === employeeId)?.name : null;
+        toast.success(to ? `Assigned to ${to}` : "Returned to stock", { description: a.name });
+        if (employeeId === ME) {
+          get().notify({ title: "New equipment assigned", body: `${a.name} is now registered to you.`, href: "/dashboard" });
+        }
+      },
+      sendAssetToRepair: (id) => {
+        const a = get().assets.find((x) => x.id === id);
+        if (!a) return;
+        set((s) => ({ assets: s.assets.map((x) => (x.id === id ? { ...x, employeeId: null, assignedOn: undefined, status: "in-repair" } : x)) }));
+        toast("Sent to repair", { description: a.name });
+      },
+      reportAssetIssue: (id, note) => {
+        const a = get().assets.find((x) => x.id === id);
+        if (!a) return;
+        set((s) => ({
+          assets: s.assets.map((x) => (x.id === id ? { ...x, issue: { note, reportedAt: new Date().toISOString() } } : x)),
+        }));
+        toast.success("Problem reported", { description: `HR will follow up on your ${a.name}.` });
+      },
+      resolveAssetIssue: (id) =>
+        set((s) => ({
+          assets: s.assets.map((x) =>
+            x.id !== id
+              ? x
+              : x.status === "in-repair"
+                ? { ...x, issue: undefined, status: "in-stock", condition: "Good" }
+                : { ...x, issue: undefined },
+          ),
+        })),
       addHoliday: (date, name) => {
         set((s) => ({
           holidays: [...s.holidays, { id: uid("ho"), date, name }].sort((a, b) => a.date.localeCompare(b.date)),
@@ -518,7 +616,18 @@ export const useAppStore = create<AppStore>()(
         // v5: the admin view's team and their requests; keep everything else.
         if (version < 5) {
           const seed = createSeed();
-          return { ...s, team: seed.team, teamRequests: seed.teamRequests, version: STATE_VERSION };
+          return { ...s, team: seed.team, teamRequests: seed.teamRequests, assets: seed.assets, version: STATE_VERSION };
+        }
+        // v6: company equipment; keep everything else.
+        // v6 and v7 also bring the executive flag (it changes the IUTS deduction) onto saved teams.
+        if (version < 6) {
+          const seed = createSeed();
+          return { ...s, team: withExecutive(s.team, seed.team), assets: seed.assets, payrollRuns: seed.payrollRuns, version: STATE_VERSION };
+        }
+        // v7: payroll runs; keep everything else.
+        if (version < 7) {
+          const seed = createSeed();
+          return { ...s, team: withExecutive(s.team, seed.team), payrollRuns: seed.payrollRuns, version: STATE_VERSION };
         }
         return { ...s, version: STATE_VERSION };
       },

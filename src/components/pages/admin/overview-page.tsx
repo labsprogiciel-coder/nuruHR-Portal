@@ -72,8 +72,9 @@ export function AdminOverviewPage() {
           <StatTile
             icon="available"
             label="Monthly payroll"
-            value={formatMoney(data.payroll)}
+            value={formatMoney(data.payroll, undefined, { compact: true })}
             hint="Gross salaries, before CNSS and tax"
+            href="/admin/payroll"
           />
         </StatGrid>
 

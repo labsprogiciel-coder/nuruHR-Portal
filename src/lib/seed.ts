@@ -1,4 +1,4 @@
-import type { AppState, Employee, TeamRequest } from "./types";
+import type { AppState, Asset, Employee, TeamRequest } from "./types";
 
 /** The calendar opens on the week shown in the design, with Tue Nov 10 selected. */
 export const DESIGN_DATE = "2026-11-10";
@@ -6,7 +6,7 @@ export const DESIGN_DATE = "2026-11-10";
 /** Used only for server rendering; the browser swaps in the real date on hydration. */
 export const SERVER_TODAY = "2026-10-26";
 
-export const STATE_VERSION = 5;
+export const STATE_VERSION = 7;
 
 const h = (hours: number, minutes = 0) => hours * 60 + minutes;
 
@@ -410,10 +410,10 @@ export function createSeed(): AppState {
     // `profile`, requests from `requests`; the rest is their HR file.
     team: [
       emp("emp-me", "Aminata Ouédraogo", "Product Designer", "Design", "Issouf Sawadogo", "Ouagadougou", "2023-09-01", "CDI", 850_000, 1, { carryoverDays: 4 }),
-      emp("emp-mariam", "Mariam Traoré", "Managing Director", "Management", "—", "Ouagadougou", "2015-01-05", "CDI", 2_100_000, 3),
-      emp("emp-issouf", "Issouf Sawadogo", "Head of Product", "Product", "Mariam Traoré", "Ouagadougou", "2004-03-01", "CDI", 1_450_000, 4, { carryoverDays: 6 }),
+      emp("emp-mariam", "Mariam Traoré", "Managing Director", "Management", "—", "Ouagadougou", "2015-01-05", "CDI", 2_100_000, 3, { executive: true }),
+      emp("emp-issouf", "Issouf Sawadogo", "Head of Product", "Product", "Mariam Traoré", "Ouagadougou", "2004-03-01", "CDI", 1_450_000, 4, { carryoverDays: 6, executive: true }),
       emp("emp-boukary", "Boukary Compaoré", "Software Engineer", "Engineering", "Issouf Sawadogo", "Ouagadougou", "2021-06-14", "CDI", 950_000, 2, { carryoverDays: 2 }),
-      emp("emp-salimata", "Salimata Zongo", "Accountant", "Finance", "Mariam Traoré", "Ouagadougou", "2019-02-01", "CDI", 780_000, 2),
+      emp("emp-salimata", "Salimata Zongo", "Accountant", "Finance", "Mariam Traoré", "Ouagadougou", "2019-02-01", "CDI", 780_000, 2, { executive: true }),
       emp("emp-ousmane", "Ousmane Kaboré", "Sales Representative", "Sales", "Mariam Traoré", "Bobo-Dioulasso", "2025-11-17", "CDD", 450_000, 0, { contractEnd: "2026-12-31" }),
       emp("emp-rasmata", "Rasmata Ilboudo", "Customer Support Agent", "Operations", "Salimata Zongo", "Ouagadougou", "2026-09-01", "CDI", 380_000, 1, { trialEnd: "2026-11-30" }),
       emp("emp-yacouba", "Yacouba Ouattara", "Data Intern", "Engineering", "Boukary Compaoré", "Ouagadougou", "2026-07-01", "Intern", 150_000, 0, { contractEnd: "2026-12-20" }),
@@ -435,6 +435,26 @@ export function createSeed(): AppState {
       teamReq("tr-8", "emp-boukary", "approved", "Annual leave", "2026-07-06", "2026-07-19", 14, "Summer holidays", "2026-06-01"),
       teamReq("tr-9", "emp-salimata", "pending", "Maternity", "2027-01-11", "2027-04-18", 95, "Expected due date Feb 15 · 14 weeks", "2026-10-20"),
       teamReq("tr-10", "emp-issouf", "approved", "Family event", "2026-05-12", "2026-05-13", 2, "Funeral in Koudougou", "2026-05-11"),
+    ],
+    payrollRuns: {
+      "2026-09": { month: "2026-09", status: "paid", validatedAt: "2026-09-25T09:00:00.000Z", paidAt: "2026-09-30T09:00:00.000Z" },
+      "2026-10": { month: "2026-10", status: "paid", validatedAt: "2026-10-26T09:00:00.000Z", paidAt: "2026-10-30T09:00:00.000Z" },
+    },
+    // Company equipment: what each person holds, plus stock and repairs.
+    assets: [
+      asset("as-1", "Laptop", "Dell Latitude 5440", "SN DL5440-7Q2K9", "emp-me", "2023-09-01", "Good", 650_000, "2023-08-20"),
+      asset("as-2", "Phone", "Samsung Galaxy A35", "IMEI ···4417", "emp-me", "2025-02-10", "Good", 220_000, "2025-02-01"),
+      asset("as-3", "Vehicle", "Toyota Hilux", "Plate 11 HM 4521", "emp-issouf", "2022-05-02", "Fair", 18_500_000, "2022-04-15"),
+      asset("as-4", "Laptop", "HP EliteBook 840", "SN 5CG3301XZT", "emp-boukary", "2021-06-14", "Good", 720_000, "2021-06-01"),
+      asset("as-5", "Motorbike", "Yamaha Crypton 115", "Plate 11 MK 0873", "emp-ousmane", "2025-11-17", "Good", 750_000, "2025-11-10"),
+      asset("as-6", "Phone", "Tecno Spark 20", "IMEI ···9021", "emp-ousmane", "2025-11-17", "New", 95_000, "2025-11-10"),
+      asset("as-7", "Tablet", "Lenovo Tab M10", "SN HA1K22QF", "emp-rasmata", "2026-09-01", "New", 160_000, "2026-08-25"),
+      asset("as-8", "Laptop", "Dell Latitude 3540", "SN DL3540-2M8P1", null, undefined, "New", 480_000, "2026-10-05"),
+      {
+        ...asset("as-9", "Laptop", "Apple MacBook Air 13", "SN C02FK3ZBQ6L4", null, undefined, "Damaged", 900_000, "2024-03-12"),
+        status: "in-repair",
+        issue: { note: "Cracked screen, sent to the repair shop on Oct 20", reportedAt: "2026-10-18T10:00:00.000Z" },
+      },
     ],
   };
 }
@@ -480,6 +500,20 @@ function emp(
     carryoverDays: 0,
     ...extra,
   };
+}
+
+function asset(
+  id: string,
+  category: Asset["category"],
+  name: string,
+  identifier: string,
+  employeeId: string | null,
+  assignedOn: string | undefined,
+  condition: Asset["condition"],
+  value: number,
+  purchasedOn: string,
+): Asset {
+  return { id, category, name, identifier, employeeId, assignedOn, status: employeeId ? "in-use" : "in-stock", condition, value, purchasedOn };
 }
 
 function teamReq(

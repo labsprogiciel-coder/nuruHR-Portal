@@ -6,6 +6,7 @@ describe("formatMoney", () => {
     expect(formatMoney(1_250_000)).toBe("1 250 000 FCFA");
     expect(formatMoney(2_500.6, "XOF")).toBe("2 501 FCFA");
     expect(formatMoney(0, "XAF")).toBe("0 FCFA");
+    expect(formatMoney(21_575_000, "XOF", { compact: true })).toBe("21,6\u00a0M\u00a0FCFA");
   });
 
   it("keeps symbols for other currencies", () => {

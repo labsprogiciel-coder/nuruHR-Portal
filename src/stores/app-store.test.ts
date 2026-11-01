@@ -36,3 +36,32 @@ describe("undo / redo", () => {
     expect(undo()).toBeNull();
   });
 });
+
+describe("equipment", () => {
+  const asset = (id: string) => useAppStore.getState().assets.find((a) => a.id === id)!;
+
+  it("assigns stock to someone and returns it, with undo", () => {
+    expect(asset("as-8").status).toBe("in-stock");
+    useAppStore.getState().assignAsset("as-8", "emp-me");
+    expect(asset("as-8")).toMatchObject({ employeeId: "emp-me", status: "in-use" });
+    expect(asset("as-8").assignedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // Assigning to the signed-in user tells them
+    expect(useAppStore.getState().notifications[0].title).toBe("New equipment assigned");
+
+    useAppStore.getState().assignAsset("as-8", null);
+    expect(asset("as-8")).toMatchObject({ employeeId: null, status: "in-stock", assignedOn: undefined });
+    expect(undo()).toBe("Equipment");
+    expect(asset("as-8").employeeId).toBe("emp-me");
+  });
+
+  it("tracks a reported problem through repair and back to stock", () => {
+    useAppStore.getState().reportAssetIssue("as-2", "Screen flickers");
+    expect(asset("as-2").issue?.note).toBe("Screen flickers");
+
+    useAppStore.getState().sendAssetToRepair("as-2");
+    expect(asset("as-2")).toMatchObject({ status: "in-repair", employeeId: null });
+
+    useAppStore.getState().resolveAssetIssue("as-2");
+    expect(asset("as-2")).toMatchObject({ status: "in-stock", condition: "Good", issue: undefined });
+  });
+});

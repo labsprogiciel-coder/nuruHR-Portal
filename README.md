@@ -66,6 +66,18 @@ Open http://localhost:3000. To return to the exact design state, use
   employee directory with filters, and an employee file (contract, CNSS number,
   salary, seniority, leave balance and history). The signed-in employee is part
   of the team, so approving their own request here updates their Time off page.
+- **Payroll (Burkina Faso)** — a monthly run for the whole team: gross, employee
+  CNSS (5.5%, capped at 800 000 FCFA), IUTS after the flat deduction and family
+  reduction, net pay, employer CNSS (16%) and cost, with a payslip breakdown per
+  person and a CSV export for declarations. Runs go draft → validated (figures
+  frozen) → paid, and paying drops the signed-in employee's payslip into
+  Documents. Rates live in `src/lib/payroll.ts`; the IUTS scale still needs
+  checking against the current Code général des impôts.
+- **Equipment** — employees see the company property registered to them
+  (laptop, phone, tablet, vehicle, motorbike) on their dashboard and can report
+  a problem with it. Admins get an equipment list (in use, in stock, in repair,
+  problems; values in FCFA) to add items, assign or reassign them, return them
+  to stock and track repairs, and each employee file lists what that person holds.
 - **Other pages** — Dashboard, Analytics, Personal details, Documents, Time
   tracking, Benefits, Invoice, Withdrawal methods, Settings.
 

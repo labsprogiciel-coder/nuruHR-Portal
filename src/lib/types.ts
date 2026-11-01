@@ -1,3 +1,5 @@
+import type { Payslip } from "./payroll";
+
 export type EventColor = "green" | "purple" | "cyan" | "orange" | "pink" | "blue";
 
 /** Dates are local calendar days stored as "YYYY-MM-DD"; times are minutes from midnight. */
@@ -177,6 +179,40 @@ export type Employee = {
   cnssNumber: string;
   dependents: number;
   carryoverDays: number;
+  /** Executive staff (cadre): a smaller flat deduction for professional expenses in IUTS */
+  executive?: boolean;
+};
+
+/** A month's payroll once HR has acted on it; months with no entry are drafts. */
+export type PayrollRun = {
+  month: string;
+  status: "validated" | "paid";
+  validatedAt: string;
+  paidAt?: string;
+  /** Payslips frozen at validation, by employee id, so later raises don't rewrite a closed month */
+  lines?: Record<string, Payslip>;
+};
+
+export type AssetCategory = "Laptop" | "Phone" | "Tablet" | "Vehicle" | "Motorbike" | "Other";
+
+/** Company equipment. Unassigned assets (no employeeId) are in stock, or in repair. */
+export type Asset = {
+  id: string;
+  category: AssetCategory;
+  /** Make and model, e.g. "Dell Latitude 5440" */
+  name: string;
+  /** Serial number, IMEI or registration plate */
+  identifier: string;
+  employeeId: string | null;
+  /** Date it was handed to the current holder */
+  assignedOn?: string;
+  status: "in-use" | "in-stock" | "in-repair";
+  condition: "New" | "Good" | "Fair" | "Damaged";
+  /** Purchase value in FCFA */
+  value: number;
+  purchasedOn: string;
+  /** A problem the holder reported, waiting for the admin */
+  issue?: { note: string; reportedAt: string };
 };
 
 /** A colleague's leave request. The signed-in user's own requests live in `requests`. */
@@ -200,4 +236,7 @@ export type AppState = {
   benefits: Benefit[];
   team: Employee[];
   teamRequests: TeamRequest[];
+  assets: Asset[];
+  /** Keyed by month, "YYYY-MM" */
+  payrollRuns: Record<string, PayrollRun>;
 };
