@@ -300,7 +300,12 @@ export function EmployeeDialog({
               <Field label="CNSS number" htmlFor="emp-cnss" hint="Leave empty until it's issued">
                 <Input id="emp-cnss" className="font-mono" value={draft.cnssNumber} onChange={(e) => set("cnssNumber", e.target.value)} />
               </Field>
-              <Field label="Leave carried over (days)" htmlFor="emp-carryover" error={err("carryoverDays")}>
+              <Field
+                label="Leave carried over (days)"
+                htmlFor="emp-carryover"
+                error={err("carryoverDays")}
+                hint={employee?.id === ME ? "Your own carryover is set in Settings." : undefined}
+              >
                 <Input
                   id="emp-carryover"
                   type="number"
@@ -310,6 +315,7 @@ export function EmployeeDialog({
                   step={0.5}
                   className="tabular-nums"
                   value={draft.carryoverDays}
+                  disabled={employee?.id === ME}
                   onChange={(e) => set("carryoverDays", e.target.value)}
                   aria-invalid={!!err("carryoverDays")}
                 />

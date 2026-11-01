@@ -33,9 +33,13 @@ export function isCurrent(e: Pick<Employee, "departure">, today: string) {
   return !e.departure || e.departure.date >= today;
 }
 
-/** Worked at least part of `month` ("YYYY-MM"): started by its end and hadn't left or reached the end of the contract before it began. */
+/**
+ * Worked at least part of `month` ("YYYY-MM"): started by its end and hadn't left or reached
+ * the end of the contract before it began. With both dates set, the earlier one counts.
+ */
 export function employedIn(e: Pick<Employee, "startDate" | "contractEnd" | "departure">, month: string) {
-  const end = e.departure?.date ?? e.contractEnd;
+  const ends = [e.departure?.date, e.contractEnd].filter((d): d is string => !!d).sort();
+  const end = ends[0];
   return e.startDate.slice(0, 7) <= month && (!end || end.slice(0, 7) >= month);
 }
 

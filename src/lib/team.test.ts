@@ -96,6 +96,13 @@ describe("employedIn", () => {
     expect(employedIn(cdd, "2026-06")).toBe(true);
     expect(employedIn(cdd, "2026-07")).toBe(false);
   });
+  it("stops at the earlier of the departure and the contract end", () => {
+    const late = { ...base, contract: "CDD" as const, contractEnd: "2026-06-30", departure: { date: "2026-07-15", reason: "Other" as const, recordedAt: "" } };
+    expect(employedIn(late, "2026-07")).toBe(false);
+    const early = { ...late, departure: { ...late.departure, date: "2026-04-10" } };
+    expect(employedIn(early, "2026-04")).toBe(true);
+    expect(employedIn(early, "2026-05")).toBe(false);
+  });
 });
 
 describe("hrAlerts", () => {
