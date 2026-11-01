@@ -27,12 +27,13 @@ import { formatLong } from "@/lib/dates";
 import { seniorityBonusDays, yearsOfService } from "@/lib/labour-code";
 import { formatDays, plural } from "@/lib/leave";
 import { formatMoney } from "@/lib/money";
-import { computePayslip } from "@/lib/payroll";
+import { ALLOWANCES, computePayslip } from "@/lib/payroll";
 import { inDays, ME } from "@/lib/team";
 import type { Asset } from "@/lib/types";
 import { selectWorkspaceName, useAppStore } from "@/stores/app-store";
 import { AssetRow, AssetStatusBadge, AssignAssetDialog, heldSince } from "@/components/assets/shared";
 import { Card, CardHeader, EmptyState, PageHeader, PageRoot, StatGrid, StatTile } from "@/components/pages/shared/page-chrome";
+import { AdvancesCard } from "./advances-card";
 import { AssetActions } from "./assets-page";
 import { DepartureDialog, printWorkCertificate } from "./departure-dialog";
 import { EmployeeDialog } from "./employee-dialog";
@@ -172,7 +173,13 @@ export function EmployeePage({ id }: { id: string }) {
                   ["Contract", e.contract === "CDI" ? "Permanent (CDI)" : e.contractEnd ? `${e.contract} until ${formatLong(e.contractEnd)} · ${inDays(today, e.contractEnd).toLowerCase()}` : e.contract],
                   ["Start date", `${formatLong(e.startDate)} · ${years ? plural(years, "year", "years") : "less than a year"}`],
                   ...(e.trialEnd && e.trialEnd >= today ? ([["Trial period", `Ends ${formatLong(e.trialEnd)}`]] as [string, string][]) : []),
-                  ["Gross monthly salary", formatMoney(e.monthlySalary)],
+                  ["Base monthly salary", formatMoney(e.monthlySalary)],
+                  [
+                    "Allowances",
+                    ALLOWANCES.filter((a) => e.allowances?.[a.kind])
+                      .map((a) => `${a.label} ${formatMoney(e.allowances![a.kind]!)}`)
+                      .join(" · ") || "None",
+                  ],
                   ["Net monthly pay", `${formatMoney(computePayslip(e).net)} · estimate after CNSS and IUTS`],
                   ["CNSS number", <span key="cnss" className="font-mono text-[13px]">{e.cnssNumber}</span>],
                   ["Dependents", e.dependents ? plural(e.dependents, "person", "people") : "None"],
@@ -221,6 +228,7 @@ export function EmployeePage({ id }: { id: string }) {
                 </ul>
               )}
             </Card>
+            <AdvancesCard employee={e} today={today} canAdd={!left} />
           </div>
 
           <Card>

@@ -13,6 +13,7 @@ import type {
   AppNotification,
   AppState,
   Benefit,
+  Advance,
   CalEvent,
   Departure,
   DocumentFile,
@@ -21,6 +22,7 @@ import type {
   LeaveRequest,
   LeaveStatus,
   LeaveType,
+  PayrollInput,
   Profile,
   Settings,
   TimeEntry,
@@ -58,6 +60,11 @@ type Actions = {
   // payroll
   /** Lock a month's figures for payment. */
   validatePayroll: (month: string, lines: Record<string, Payslip>) => void;
+  /** HR: a month's bonus, overtime and absence for one employee; null clears them. */
+  setPayrollInput: (month: string, employeeId: string, input: PayrollInput | null) => void;
+  /** HR: lend money against future salary, repaid in instalments from `firstMonth`. */
+  addAdvance: (a: Omit<Advance, "id">) => void;
+  removeAdvance: (id: string) => void;
   /** Back to draft, before it's paid. */
   reopenPayroll: (month: string) => void;
   /** Record salaries as paid; the signed-in employee gets their payslip in Documents. */
@@ -152,6 +159,30 @@ function eventsForRequest(req: LeaveRequest): CalEvent[] {
 // localStorage throws when the ~5MB quota is full (e.g. large uploaded
 // documents). Keep the app working in memory and say so once.
 let warnedQuota = false;
+/** Brings saved data from before v8 up to v7's shape; v8's additions are filled in by the caller. */
+function migrateBefore8(s: AppState, version: number): AppState {
+  // v4: rebrand to Nuru for Burkina Faso — new leave types, holidays, FCFA amounts and
+  // Labour Code allowance. The old demo data doesn't map onto any of that, so start fresh.
+  if (version < 4) return createSeed();
+  // v5: the admin view's team and their requests; keep everything else.
+  if (version < 5) {
+    const seed = createSeed();
+    return { ...s, team: seed.team, teamRequests: seed.teamRequests, assets: seed.assets, version: STATE_VERSION };
+  }
+  // v6: company equipment; keep everything else.
+  // v6 and v7 also bring the executive flag (it changes the IUTS deduction) onto saved teams.
+  if (version < 6) {
+    const seed = createSeed();
+    return { ...s, team: withExecutive(s.team, seed.team), assets: seed.assets, payrollRuns: seed.payrollRuns, version: STATE_VERSION };
+  }
+  // v7: payroll runs; keep everything else.
+  if (version < 7) {
+    const seed = createSeed();
+    return { ...s, team: withExecutive(s.team, seed.team), payrollRuns: seed.payrollRuns, version: STATE_VERSION };
+  }
+  return { ...s, version: STATE_VERSION };
+}
+
 /** Copies the seed's executive flag onto saved employees that predate it. */
 const withExecutive = (team: AppState["team"], seedTeam: AppState["team"]) =>
   team.map((e) => (e.executive === undefined && seedTeam.find((x) => x.id === e.id)?.executive ? { ...e, executive: true } : e));
@@ -199,6 +230,8 @@ const TRACKED = [
   "teamRequests",
   "assets",
   "payrollRuns",
+  "payrollInputs",
+  "advances",
 ] as const satisfies readonly (keyof AppState)[];
 type TrackedKey = (typeof TRACKED)[number];
 type Snapshot = Pick<AppState, TrackedKey>;
@@ -225,6 +258,8 @@ const KEY_LABELS: Record<TrackedKey, string> = {
   teamRequests: "Leave request",
   assets: "Equipment",
   payrollRuns: "Payroll",
+  payrollInputs: "Payroll",
+  advances: "Salary advances",
 };
 
 function snapshotOf(state: AppState): Snapshot {
@@ -417,6 +452,24 @@ export const useAppStore = create<AppStore>()(
           payrollRuns: { ...s.payrollRuns, [month]: { month, status: "validated", validatedAt: new Date().toISOString(), lines } },
         }));
         toast.success("Payroll validated", { description: `${monthName(month + "-01")} ${month.slice(0, 4)} is ready to pay` });
+      },
+      setPayrollInput: (month, employeeId, input) => {
+        const empty = !input || (!input.bonus && !input.overtime15 && !input.overtime35 && !input.absenceDays && !input.note?.trim());
+        set((s) => {
+          const forMonth = { ...(s.payrollInputs[month] ?? {}) };
+          if (empty) delete forMonth[employeeId];
+          else forMonth[employeeId] = input;
+          return { payrollInputs: { ...s.payrollInputs, [month]: forMonth } };
+        });
+      },
+      addAdvance: (a) => {
+        set((s) => ({ advances: [...s.advances, { ...a, id: uid("adv") }] }));
+        const name = get().team.find((e) => e.id === a.employeeId)?.name ?? "";
+        toast.success("Advance recorded", { description: `${name} · repaid from ${monthName(a.firstMonth + "-01")} ${a.firstMonth.slice(0, 4)}` });
+      },
+      removeAdvance: (id) => {
+        set((s) => ({ advances: s.advances.filter((a) => a.id !== id) }));
+        toast("Advance removed");
       },
       reopenPayroll: (month) =>
         set((s) => {
@@ -658,28 +711,10 @@ export const useAppStore = create<AppStore>()(
       storage: createJSONStorage(() => safeLocalStorage),
       // Hydrate after mount so the server-rendered markup (the seed) matches.
       skipHydration: true,
+      // Every older version gets the v8 payroll additions (no monthly inputs, no advances).
       migrate: (persisted, version) => {
-        const s = persisted as AppState;
-        // v4: rebrand to Nuru for Burkina Faso — new leave types, holidays, FCFA amounts and
-        // Labour Code allowance. The old demo data doesn't map onto any of that, so start fresh.
-        if (version < 4) return createSeed();
-        // v5: the admin view's team and their requests; keep everything else.
-        if (version < 5) {
-          const seed = createSeed();
-          return { ...s, team: seed.team, teamRequests: seed.teamRequests, assets: seed.assets, version: STATE_VERSION };
-        }
-        // v6: company equipment; keep everything else.
-        // v6 and v7 also bring the executive flag (it changes the IUTS deduction) onto saved teams.
-        if (version < 6) {
-          const seed = createSeed();
-          return { ...s, team: withExecutive(s.team, seed.team), assets: seed.assets, payrollRuns: seed.payrollRuns, version: STATE_VERSION };
-        }
-        // v7: payroll runs; keep everything else.
-        if (version < 7) {
-          const seed = createSeed();
-          return { ...s, team: withExecutive(s.team, seed.team), payrollRuns: seed.payrollRuns, version: STATE_VERSION };
-        }
-        return { ...s, version: STATE_VERSION };
+        const next: Partial<AppState> = migrateBefore8(persisted as AppState, version);
+        return { ...next, payrollInputs: next.payrollInputs ?? {}, advances: next.advances ?? [] } as AppState;
       },
       partialize: (s) => {
         const data: Partial<AppStore> = {};
