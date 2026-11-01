@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useToday } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
 import { useCalendarStore, type CalendarView } from "@/stores/calendar-store";
+import { MobileNavButton } from "@/components/shell/mobile-nav";
 
 // Fixed segment geometry from the Figma so the active pill can slide.
 const VIEWS: { id: CalendarView; label: string; left: number; width: number; key: string }[] = [
@@ -69,6 +70,7 @@ export function CalendarHeader({ days }: { days: string[] }) {
     // md+: the single 68px row from the design.
     <div className="flex w-full shrink-0 flex-col gap-3 overflow-hidden border-b border-hairline px-4 py-3 md:h-[68px] md:flex-row md:items-center md:gap-2 md:py-0">
       <div className="flex min-w-0 items-center gap-2 md:contents">
+        <MobileNavButton />
         <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 overflow-hidden whitespace-nowrap">
           <h2 className="t-16 max-w-full truncate text-fg">{title}</h2>
           <p className="t-14 salt max-w-full truncate text-fg-2">{subtitle}</p>
