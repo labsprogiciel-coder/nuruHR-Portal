@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-/** App-wide dialogs that can be opened from anywhere (title bar, shortcuts, pages). */
+/** App-wide dialogs that can be opened from anywhere (sidebar, shortcuts, pages). */
 export type Overlay =
   | { kind: "none" }
   | { kind: "request"; requestId?: string; from?: string }

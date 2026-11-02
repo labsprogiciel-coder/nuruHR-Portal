@@ -23,18 +23,18 @@ import { useAppStore } from "@/stores/app-store";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { openOverlay, useOverlayStore } from "@/stores/overlay-store";
 
-/** The title-bar search field. Opens a command palette (⌘K / "/"). */
+/** The sidebar search field. Opens a command palette (⌘K / "/"). */
 export function GlobalSearchTrigger() {
   return (
     <button
       type="button"
+      data-close-nav
       onClick={() => openOverlay({ kind: "search" })}
-      className="press flex h-[30px] w-[30px] items-center justify-center gap-2 rounded-lg border border-control bg-surface text-left outline-none transition-[border-color,box-shadow] duration-150 hover-fine:border-segment focus-visible:ring-3 focus-visible:ring-brand/15 md:w-48 md:justify-start md:px-2.5 xl:w-60"
-      aria-label="Search"
+      className="press flex h-[30px] min-w-0 flex-1 items-center justify-start gap-2 rounded-lg border border-control bg-surface px-2.5 text-left outline-none transition-[border-color,box-shadow] duration-150 hover-fine:border-segment focus-visible:ring-3 focus-visible:ring-brand/15 max-lg:h-10"
       aria-keyshortcuts="Meta+K"
     >
       <Icon name="search" />
-      <span className="t-14 hidden min-w-0 flex-1 text-placeholder md:block">Search...</span>
+      <span className="t-14 min-w-0 flex-1 truncate text-placeholder">Search...</span>
     </button>
   );
 }

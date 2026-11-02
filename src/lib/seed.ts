@@ -6,7 +6,7 @@ export const DESIGN_DATE = "2026-11-10";
 /** Used only for server rendering; the browser swaps in the real date on hydration. */
 export const SERVER_TODAY = "2026-10-26";
 
-export const STATE_VERSION = 7;
+export const STATE_VERSION = 8;
 
 const h = (hours: number, minutes = 0) => hours * 60 + minutes;
 
@@ -409,13 +409,13 @@ export function createSeed(): AppState {
     // The company the admin view manages. "emp-me" is the signed-in user: identity from
     // `profile`, requests from `requests`; the rest is their HR file.
     team: [
-      emp("emp-me", "Aminata Ouédraogo", "Product Designer", "Design", "Issouf Sawadogo", "Ouagadougou", "2023-09-01", "CDI", 850_000, 1, { carryoverDays: 4 }),
-      emp("emp-mariam", "Mariam Traoré", "Managing Director", "Management", "—", "Ouagadougou", "2015-01-05", "CDI", 2_100_000, 3, { executive: true }),
-      emp("emp-issouf", "Issouf Sawadogo", "Head of Product", "Product", "Mariam Traoré", "Ouagadougou", "2004-03-01", "CDI", 1_450_000, 4, { carryoverDays: 6, executive: true }),
-      emp("emp-boukary", "Boukary Compaoré", "Software Engineer", "Engineering", "Issouf Sawadogo", "Ouagadougou", "2021-06-14", "CDI", 950_000, 2, { carryoverDays: 2 }),
-      emp("emp-salimata", "Salimata Zongo", "Accountant", "Finance", "Mariam Traoré", "Ouagadougou", "2019-02-01", "CDI", 780_000, 2, { executive: true }),
-      emp("emp-ousmane", "Ousmane Kaboré", "Sales Representative", "Sales", "Mariam Traoré", "Bobo-Dioulasso", "2025-11-17", "CDD", 450_000, 0, { contractEnd: "2026-12-31" }),
-      emp("emp-rasmata", "Rasmata Ilboudo", "Customer Support Agent", "Operations", "Salimata Zongo", "Ouagadougou", "2026-09-01", "CDI", 380_000, 1, { trialEnd: "2026-11-30" }),
+      emp("emp-me", "Aminata Ouédraogo", "Product Designer", "Design", "Issouf Sawadogo", "Ouagadougou", "2023-09-01", "CDI", 850_000, 1, { carryoverDays: 4, allowances: { housing: 100_000, transport: 25_000 } }),
+      emp("emp-mariam", "Mariam Traoré", "Managing Director", "Management", "—", "Ouagadougou", "2015-01-05", "CDI", 2_100_000, 3, { executive: true, allowances: { housing: 250_000, transport: 50_000, function: 150_000 } }),
+      emp("emp-issouf", "Issouf Sawadogo", "Head of Product", "Product", "Mariam Traoré", "Ouagadougou", "2004-03-01", "CDI", 1_450_000, 4, { carryoverDays: 6, executive: true, allowances: { housing: 150_000, transport: 40_000, function: 75_000 } }),
+      emp("emp-boukary", "Boukary Compaoré", "Software Engineer", "Engineering", "Issouf Sawadogo", "Ouagadougou", "2021-06-14", "CDI", 950_000, 2, { carryoverDays: 2, allowances: { housing: 100_000, transport: 25_000 } }),
+      emp("emp-salimata", "Salimata Zongo", "Accountant", "Finance", "Mariam Traoré", "Ouagadougou", "2019-02-01", "CDI", 780_000, 2, { executive: true, allowances: { housing: 80_000, transport: 25_000 } }),
+      emp("emp-ousmane", "Ousmane Kaboré", "Sales Representative", "Sales", "Mariam Traoré", "Bobo-Dioulasso", "2025-11-17", "CDD", 450_000, 0, { contractEnd: "2026-12-31", allowances: { transport: 30_000, other: 20_000 } }),
+      emp("emp-rasmata", "Rasmata Ilboudo", "Customer Support Agent", "Operations", "Salimata Zongo", "Ouagadougou", "2026-09-01", "CDI", 380_000, 1, { trialEnd: "2026-11-30", allowances: { transport: 20_000 } }),
       emp("emp-yacouba", "Yacouba Ouattara", "Data Intern", "Engineering", "Boukary Compaoré", "Ouagadougou", "2026-07-01", "Intern", 150_000, 0, { contractEnd: "2026-12-20" }),
     ],
     teamRequests: [
@@ -440,6 +440,18 @@ export function createSeed(): AppState {
       "2026-09": { month: "2026-09", status: "paid", validatedAt: "2026-09-25T09:00:00.000Z", paidAt: "2026-09-30T09:00:00.000Z" },
       "2026-10": { month: "2026-10", status: "paid", validatedAt: "2026-10-26T09:00:00.000Z", paidAt: "2026-10-30T09:00:00.000Z" },
     },
+    // November's variable pay, entered before validating; and salary advances being repaid.
+    payrollInputs: {
+      "2026-11": {
+        "emp-ousmane": { overtime15: 8, bonus: 75_000, note: "Sales bonus: Q3 target met" },
+        "emp-boukary": { overtime15: 6, overtime35: 4, note: "Release weekend" },
+        "emp-yacouba": { absenceDays: 2, note: "Unpaid leave, Nov 12–13" },
+      },
+    },
+    advances: [
+      { id: "adv-1", employeeId: "emp-rasmata", amount: 150_000, date: "2026-10-20", installment: 50_000, firstMonth: "2026-11", note: "Rent deposit" },
+      { id: "adv-2", employeeId: "emp-ousmane", amount: 100_000, date: "2026-10-28", installment: 25_000, firstMonth: "2026-11" },
+    ],
     // Company equipment: what each person holds, plus stock and repairs.
     assets: [
       asset("as-1", "Laptop", "Dell Latitude 5440", "SN DL5440-7Q2K9", "emp-me", "2023-09-01", "Good", 650_000, "2023-08-20"),

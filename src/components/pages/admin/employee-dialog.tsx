@@ -9,9 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatMoney } from "@/lib/money";
-import { computePayslip } from "@/lib/payroll";
+import { ALLOWANCES, computePayslip } from "@/lib/payroll";
 import { ME } from "@/lib/team";
-import type { ContractType, Employee } from "@/lib/types";
+import type { AllowanceKind, ContractType, Employee } from "@/lib/types";
 import { useToday } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
 
@@ -39,6 +39,7 @@ type Draft = {
   dependents: string;
   cnssNumber: string;
   carryoverDays: string;
+  allowances: Record<AllowanceKind, string>;
 };
 
 function toDraft(e: Employee | undefined, today: string): Draft {
@@ -59,7 +60,18 @@ function toDraft(e: Employee | undefined, today: string): Draft {
     dependents: String(e?.dependents ?? 0),
     cnssNumber: e?.cnssNumber ?? "",
     carryoverDays: String(e?.carryoverDays ?? 0),
+    allowances: Object.fromEntries(ALLOWANCES.map((a) => [a.kind, e?.allowances?.[a.kind] ? String(e.allowances[a.kind]) : ""])) as Record<AllowanceKind, string>,
   };
+}
+
+/** The allowances that are set, as numbers; undefined when there are none. */
+function parseAllowances(a: Record<AllowanceKind, string>): Employee["allowances"] {
+  const out: NonNullable<Employee["allowances"]> = {};
+  for (const { kind } of ALLOWANCES) {
+    const n = Number(a[kind]);
+    if (Number.isInteger(n) && n > 0) out[kind] = n;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 /** What's wrong with each field, if anything. Dates are YYYY-MM-DD, so they compare as strings. */
@@ -91,6 +103,9 @@ function problems(d: Draft) {
     monthlySalary: Number.isInteger(salary) && salary > 0 ? null : "Enter the gross monthly salary in FCFA.",
     dependents: Number.isInteger(dependents) && dependents >= 0 && dependents <= 20 ? null : "Between 0 and 20.",
     carryoverDays: Number.isFinite(carryover) && carryover >= 0 && carryover <= 60 ? null : "Between 0 and 60 days.",
+    allowances: Object.values(d.allowances).every((v) => !v || (Number.isInteger(Number(v)) && Number(v) >= 0))
+      ? null
+      : "Allowances are whole amounts in FCFA.",
   };
 }
 
@@ -140,7 +155,12 @@ export function EmployeeDialog({
   const salary = Number(draft.monthlySalary);
   const net =
     Number.isInteger(salary) && salary > 0
-      ? computePayslip({ monthlySalary: salary, dependents: Math.min(20, Math.max(0, Number(draft.dependents) || 0)), executive: draft.executive }).net
+      ? computePayslip({
+          monthlySalary: salary,
+          dependents: Math.min(20, Math.max(0, Number(draft.dependents) || 0)),
+          executive: draft.executive,
+          allowances: parseAllowances(draft.allowances),
+        }).net
       : null;
 
   const others = team.filter((e) => e.id !== employee?.id);
@@ -170,6 +190,7 @@ export function EmployeeDialog({
       dependents: Number(draft.dependents),
       cnssNumber: draft.cnssNumber.trim(),
       carryoverDays: Number(draft.carryoverDays),
+      allowances: parseAllowances(draft.allowances),
     };
     if (employee) {
       update(employee.id, record);
@@ -328,6 +349,34 @@ export function EmployeeDialog({
                 <span className="t-12 text-fg-2">Gets the 20% flat deduction in IUTS instead of 25%.</span>
               </Label>
             </div>
+          </fieldset>
+
+          <fieldset className="grid gap-4">
+            <legend className="t-14 mb-1 font-medium text-fg">Monthly allowances (FCFA)</legend>
+            <p className="t-12 -mt-2 text-fg-2">Paid every month on top of the base salary. Bonuses and overtime are added month by month in Payroll.</p>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {ALLOWANCES.map((a) => (
+                <Field key={a.kind} label={a.label} htmlFor={`emp-allow-${a.kind}`}>
+                  <Input
+                    id={`emp-allow-${a.kind}`}
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={1}
+                    placeholder="0"
+                    className="tabular-nums"
+                    value={draft.allowances[a.kind]}
+                    onChange={(e) => setDraft((d) => ({ ...d, allowances: { ...d.allowances, [a.kind]: e.target.value } }))}
+                    aria-invalid={!!err("allowances")}
+                  />
+                </Field>
+              ))}
+            </div>
+            {err("allowances") ? (
+              <p className="t-12 text-danger" role="alert">
+                {err("allowances")}
+              </p>
+            ) : null}
           </fieldset>
 
           <datalist id="emp-depts">

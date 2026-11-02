@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRightIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MobileNavButton } from "@/components/shell/mobile-nav";
 
 /**
  * Shared page scaffolding for the secondary pages (dashboard, analytics,
@@ -25,8 +26,9 @@ export function PageRoot({ className, children, ...props }: React.ComponentProps
 
 /**
  * Section header. Desktop/tablet (md+): sticky 68px row — title + secondary
- * line on the left, 30px actions on the right. Phones: it scrolls away with
- * the page (the shell's title bar already names the page), the title and
+ * line on the left, 30px actions on the right. It is the top of the screen
+ * (there's no app bar), so the title is the page's h1, and below `lg` it starts
+ * with the navigation button. Phones: it scrolls away with the page, the title and
  * description wrap instead of truncating, actions drop below the title when
  * they don't fit, and action buttons grow to 40px touch targets.
  */
@@ -49,8 +51,9 @@ export function PageHeader({
         className,
       )}
     >
+      <MobileNavButton />
       <div className="flex min-w-0 flex-1 basis-40 flex-col gap-2 md:basis-0">
-        <h2 className="t-16 text-pretty text-fg md:truncate">{title}</h2>
+        <h1 className="t-16 text-pretty text-fg md:truncate">{title}</h1>
         {description ? (
           <p className="t-14 max-w-[62ch] text-pretty text-fg-2 md:truncate" style={{ maxWidth: "35em" }}>
             {description}

@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { yearsOfService } from "@/lib/labour-code";
 import { formatDays, plural } from "@/lib/leave";
 import { formatMoney } from "@/lib/money";
+import { escapeHtml, frenchDate, openPrintable } from "@/lib/print";
 import type { Asset, DepartureReason, Employee } from "@/lib/types";
 import { useAppStore } from "@/stores/app-store";
 
@@ -145,44 +146,27 @@ export function DepartureDialog({
   );
 }
 
-const escape = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-
-/** "4 mars 2023", and "1er novembre 2026" for the first of the month */
-function frenchDate(iso: string) {
-  const text = new Date(`${iso}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-  return text.startsWith("1 ") ? `1er ${text.slice(2)}` : text;
-}
-
 /**
  * The work certificate (certificat de travail) the employer hands over at the end of a contract:
  * who, which job, from when to when. Opens in a new tab ready to print or save as PDF.
  */
 export function printWorkCertificate(e: Employee, company: string, today: string) {
   if (!e.departure) return;
-  const html = `<!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><title>Certificat de travail – ${escape(e.name)}</title>
-<style>
-  @page { size: A4; margin: 25mm; }
-  body { font: 15px/1.6 Georgia, "Times New Roman", serif; color: #111; max-width: 640px; margin: 48px auto; padding: 0 24px; }
+  const body = `
+  <p class="company">${escapeHtml(company)}</p>
+  <h1>CERTIFICAT DE TRAVAIL</h1>
+  <p>Nous soussignés, ${escapeHtml(company)}, certifions que <strong>${escapeHtml(e.name)}</strong> a été employé(e) au sein de notre entreprise
+  du <strong>${frenchDate(e.startDate)}</strong> au <strong>${frenchDate(e.departure.date)}</strong>, en qualité de <strong>${escapeHtml(e.jobTitle)}</strong>
+  (service ${escapeHtml(e.department)}).</p>
+  <p>${escapeHtml(e.name)} nous quitte libre de tout engagement.</p>
+  <p>Ce certificat est délivré pour servir et valoir ce que de droit.</p>
+  <p class="sign">Fait à ${escapeHtml(e.location)}, le ${frenchDate(today)}<br><br>La Direction<br><span class="muted">(signature et cachet)</span></p>`;
+  openPrintable(
+    `Certificat de travail – ${e.name}`,
+    body,
+    `body { font-size: 15px; line-height: 1.6; max-width: 640px; }
   h1 { font-size: 20px; letter-spacing: 2px; text-align: center; margin: 48px 0 40px; }
   .company { font-weight: bold; }
-  .sign { margin-top: 64px; text-align: right; }
-  .muted { color: #555; font-size: 13px; }
-  @media print { .noprint { display: none; } body { margin: 0 auto; } }
-</style></head>
-<body>
-  <p class="company">${escape(company)}</p>
-  <h1>CERTIFICAT DE TRAVAIL</h1>
-  <p>Nous soussignés, ${escape(company)}, certifions que <strong>${escape(e.name)}</strong> a été employé(e) au sein de notre entreprise
-  du <strong>${frenchDate(e.startDate)}</strong> au <strong>${frenchDate(e.departure.date)}</strong>, en qualité de <strong>${escape(e.jobTitle)}</strong>
-  (service ${escape(e.department)}).</p>
-  <p>${escape(e.name)} nous quitte libre de tout engagement.</p>
-  <p>Ce certificat est délivré pour servir et valoir ce que de droit.</p>
-  <p class="sign">Fait à ${escape(e.location)}, le ${frenchDate(today)}<br><br>La Direction<br><span class="muted">(signature et cachet)</span></p>
-  <p class="noprint muted" style="margin-top:48px">Imprimez ou enregistrez en PDF (Ctrl/Cmd + P), puis faites signer et tamponner.</p>
-  <script>window.addEventListener("load", () => window.print());</script>
-</body></html>`;
-  const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-  window.open(url, "_blank", "noopener");
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  .sign { margin-top: 64px; text-align: right; }`,
+  );
 }
