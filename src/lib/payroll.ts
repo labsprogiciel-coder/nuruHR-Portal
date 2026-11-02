@@ -213,6 +213,17 @@ export function repaidBefore(runs: Record<string, PayrollRun>, employeeId: strin
 }
 
 /**
+ * The last validated or paid month that withheld an advance repayment from this employee.
+ * A new advance must start after it: repayments go to the advance that starts first, so one
+ * starting earlier would be credited with money withheld for another.
+ */
+export function lastRepaymentMonth(runs: Record<string, PayrollRun>, employeeId: string): string | null {
+  let last: string | null = null;
+  for (const [m, run] of Object.entries(runs)) if ((run.lines?.[employeeId]?.advance ?? 0) > 0 && (!last || m > last)) last = m;
+  return last;
+}
+
+/**
  * Where each of an employee's advances stands before `month`, oldest first: repayments
  * already withheld go to the oldest advance first. `due` is this month's instalments.
  */

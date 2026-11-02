@@ -8,7 +8,8 @@ const pct = (n: number) => `${String(Math.round(n * 1000) / 10).replace(".", ","
 export function downloadCsv(filename: string, rows: (string | number)[][]) {
   const cell = (v: string | number) => (typeof v === "string" && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v));
   const csv = rows.map((r) => r.map((v) => `"${cell(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  // The byte-order mark makes Excel read the file as UTF-8, so French accents survive
+  const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
   const a = Object.assign(document.createElement("a"), { href: url, download: filename });
   a.click();
   URL.revokeObjectURL(url);

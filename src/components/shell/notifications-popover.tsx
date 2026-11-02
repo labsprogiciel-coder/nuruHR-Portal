@@ -61,6 +61,7 @@ export function NotificationsPopover({ side = "bottom", align = "end" }: { side?
               <li key={n.id}>
                 <button
                   type="button"
+                  data-close-nav={n.href ? "" : undefined}
                   onClick={() => {
                     markRead(n.id);
                     if (n.href) router.push(n.href);

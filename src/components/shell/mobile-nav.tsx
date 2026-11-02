@@ -44,11 +44,12 @@ export function MobileNav() {
       <SheetContent side="left" showCloseButton={false} className="w-[280px] max-w-[85vw] gap-0 border-hairline bg-app p-0 pt-[env(safe-area-inset-top)]">
         <SheetTitle className="sr-only">Navigation</SheetTitle>
         <SheetDescription className="sr-only">Pages, search, notifications and your account</SheetDescription>
-        {/* React events bubble through portals, so menu items opened from here count too */}
+        {/* React events bubble through portals, so menu items (help, account) and notifications
+            opened from here count too */}
         <div
           className="flex min-h-0 flex-1 flex-col"
           onClickCapture={(ev) => {
-            if ((ev.target as HTMLElement).closest("a[href], [data-close-nav]")) setOpen(false);
+            if ((ev.target as HTMLElement).closest("a[href], [data-close-nav], [role=menuitem]")) setOpen(false);
           }}
         >
           <SidebarHeader />

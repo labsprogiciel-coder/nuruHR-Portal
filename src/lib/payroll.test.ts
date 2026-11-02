@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceSchedule, computePayslip, normalizeSlip, payrollTotals, progressiveTax, repaidBefore, variablePay } from "./payroll";
+import { advanceSchedule, computePayslip, lastRepaymentMonth, normalizeSlip, payrollTotals, progressiveTax, repaidBefore, variablePay } from "./payroll";
 
 describe("Burkina Faso payroll", () => {
   it("caps CNSS at 800 000 FCFA and applies the scale and family reduction", () => {
@@ -87,6 +87,18 @@ describe("Burkina Faso payroll", () => {
     };
     expect(repaidBefore(runs, "e", "2026-11")).toBe(30_000);
     expect(repaidBefore(runs, "e", "2026-10")).toBe(0);
+  });
+
+  it("knows the last month that withheld a repayment, so new advances start after it", () => {
+    const withheld = (n: number) => computePayslip({ monthlySalary: 500_000, dependents: 0 }, {}, n);
+    const runs = {
+      "2026-09": { month: "2026-09", status: "paid" as const, validatedAt: "", lines: { e: withheld(20_000) } },
+      "2026-10": { month: "2026-10", status: "paid" as const, validatedAt: "", lines: { e: withheld(20_000), f: withheld(0) } },
+      "2026-11": { month: "2026-11", status: "validated" as const, validatedAt: "", lines: { e: withheld(0) } },
+    };
+    expect(lastRepaymentMonth(runs, "e")).toBe("2026-10");
+    expect(lastRepaymentMonth(runs, "f")).toBeNull();
+    expect(lastRepaymentMonth({}, "e")).toBeNull();
   });
 
   it("reads payslips frozen before allowances and advances", () => {

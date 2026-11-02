@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { addMonths, formatLong, monthName } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
-import { advanceSchedule, repaidBefore } from "@/lib/payroll";
+import { advanceSchedule, lastRepaymentMonth, repaidBefore } from "@/lib/payroll";
 import type { Employee } from "@/lib/types";
 import { useAppStore } from "@/stores/app-store";
 import { Card, CardHeader, EmptyState } from "@/components/pages/shared/page-chrome";
@@ -84,7 +84,10 @@ function AdvanceDialog({ open, employee: e, today, onClose }: { open: boolean; e
   const add = useAppStore((s) => s.addAdvance);
   const runs = useAppStore((s) => s.payrollRuns);
   // Repay from the first month whose payroll is still a draft
+  // and after the last month that already withheld a repayment from them
+  const lastRepaid = lastRepaymentMonth(runs, e.id);
   let first = today.slice(0, 7);
+  if (lastRepaid && first <= lastRepaid) first = addMonths(lastRepaid + "-01", 1).slice(0, 7);
   while (runs[first]) first = addMonths(first + "-01", 1).slice(0, 7);
   const blank = { amount: "", installment: "", date: today, firstMonth: first, note: "" };
   const [draft, setDraft] = useState(blank);
@@ -100,7 +103,8 @@ function AdvanceDialog({ open, employee: e, today, onClose }: { open: boolean; e
   const amountOk = Number.isInteger(amount) && amount > 0;
   const installmentOk = Number.isInteger(installment) && installment > 0 && (!amountOk || installment <= amount);
   const closedMonth = !!runs[draft.firstMonth];
-  const valid = amountOk && installmentOk && !!draft.date && !!draft.firstMonth && !closedMonth;
+  const beforeRepayment = !!lastRepaid && draft.firstMonth <= lastRepaid;
+  const valid = amountOk && installmentOk && !!draft.date && !!draft.firstMonth && !closedMonth && !beforeRepayment;
   const months = amountOk && installmentOk ? Math.ceil(amount / installment) : 0;
 
   return (
@@ -143,7 +147,13 @@ function AdvanceDialog({ open, employee: e, today, onClose }: { open: boolean; e
             <Field label="Given on" htmlFor="adv-date">
               <Input id="adv-date" type="date" value={draft.date} onChange={(ev) => set("date", ev.target.value)} />
             </Field>
-            <Field label="First repayment" htmlFor="adv-first" error={closedMonth ? `${monthLabel(draft.firstMonth)} payroll is already validated.` : null}>
+            <Field label="First repayment" htmlFor="adv-first" error={
+                closedMonth
+                  ? `${monthLabel(draft.firstMonth)} payroll is already validated.`
+                  : beforeRepayment
+                    ? `Start after ${monthLabel(lastRepaid!)}, when their last repayment was withheld.`
+                    : null
+              }>
               <Input id="adv-first" type="month" value={draft.firstMonth} onChange={(ev) => set("firstMonth", ev.target.value)} />
             </Field>
             <Field label="Note" htmlFor="adv-note" hint="Optional" className="sm:col-span-2">

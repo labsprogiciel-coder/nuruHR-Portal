@@ -6,7 +6,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { formatShort, monthName, rangeKeys, toKey } from "@/lib/dates";
 import { countedDays, durationLabel, LEAVE_COLORS, WORKDAY_MINUTES } from "@/lib/leave";
 import { createSeed, STATE_VERSION } from "@/lib/seed";
-import type { Payslip } from "@/lib/payroll";
+import { lastRepaymentMonth, type Payslip } from "@/lib/payroll";
 import { initialsOf, ME } from "@/lib/team";
 import type {
   Asset,
@@ -463,6 +463,9 @@ export const useAppStore = create<AppStore>()(
         });
       },
       addAdvance: (a) => {
+        const s = get();
+        const last = lastRepaymentMonth(s.payrollRuns, a.employeeId);
+        if (s.payrollRuns[a.firstMonth] || (last && a.firstMonth <= last)) return;
         set((s) => ({ advances: [...s.advances, { ...a, id: uid("adv") }] }));
         const name = get().team.find((e) => e.id === a.employeeId)?.name ?? "";
         toast.success("Advance recorded", { description: `${name} · repaid from ${monthName(a.firstMonth + "-01")} ${a.firstMonth.slice(0, 4)}` });
