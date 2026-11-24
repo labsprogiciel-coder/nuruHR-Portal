@@ -57,10 +57,11 @@ import {
   type PayoutBatch,
 } from "@/lib/payouts";
 import { employedIn, monthShare } from "@/lib/team";
-import type { Employee, PayrollInput, PayrollRun } from "@/lib/types";
+import type { Employee, PayoutMethod, PayrollInput, PayrollRun } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { selectWorkspaceName, useAppStore } from "@/stores/app-store";
 import { Card, PageHeader, PageRoot, StatGrid, StatTile } from "@/components/pages/shared/page-chrome";
+import { PayoutLogo } from "./payout-logo";
 import { EmployeeAvatar, useTeam } from "./shared";
 
 const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
@@ -256,7 +257,7 @@ export function PayrollPage() {
         <Card className="overflow-hidden">
           <div role="row" className="flex h-10 items-center gap-3 border-b border-hairline bg-app px-4 max-md:hidden">
             <span className="t-14 min-w-0 flex-1 text-fg-2">Employee</span>
-            <span className="t-14 w-32 shrink-0 text-fg-2 max-lg:hidden">Paid by</span>
+            <span className="t-14 w-36 shrink-0 text-fg-2 max-lg:hidden">Paid by</span>
             {["Gross", "CNSS 5.5%", "IUTS", "Advance", "To pay"].map((h) => (
               <span key={h} className="t-14 w-32 shrink-0 text-right text-fg-2">
                 {h}
@@ -285,8 +286,12 @@ export function PayrollPage() {
                         {extra ? <span className="text-brand"> · {extra}</span> : null}
                       </span>
                     </span>
-                    <span className={cn("t-14 w-32 shrink-0 truncate max-lg:hidden", paidBy.missing ? "text-warning" : "text-table")} title={paidBy.title}>
-                      {paidBy.label}
+                    <span
+                      className={cn("t-14 flex w-36 shrink-0 items-center gap-2 max-lg:hidden", paidBy.missing ? "text-warning" : "text-table")}
+                      title={paidBy.title}
+                    >
+                      {paidBy.method ? <PayoutLogo method={paidBy.method} /> : null}
+                      <span className="truncate">{paidBy.label}</span>
                     </span>
                     <Money value={s.gross} className="max-md:hidden" />
                     <Money value={-s.cnssEmployee} className="max-md:hidden" />
@@ -300,7 +305,7 @@ export function PayrollPage() {
           </ul>
           <div className="flex min-h-12 items-center gap-3 border-t border-hairline bg-app px-4 py-2">
             <span className="t-14 min-w-0 flex-1 text-fg">Total</span>
-            <span className="w-32 shrink-0 max-lg:hidden" aria-hidden />
+            <span className="w-36 shrink-0 max-lg:hidden" aria-hidden />
             <Money value={totals.gross} className="max-md:hidden" />
             <Money value={-totals.cnssEmployee} className="max-md:hidden" />
             <Money value={-totals.iuts} className="max-md:hidden" />
@@ -404,6 +409,7 @@ function PayDialog({
         <ul className="divide-y divide-subtle overflow-hidden rounded-lg border border-hairline">
           {batches.map((b) => (
             <li key={b.method} className="flex items-center gap-3 px-3 py-2.5">
+              <PayoutLogo method={b.method} size={32} className="rounded-lg" />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="t-14 text-fg">{PAYOUT_METHODS[b.method].label}</span>
                 <span className="t-12 truncate text-fg-2">
@@ -483,11 +489,11 @@ function StatusPill({ status }: { status: keyof typeof STATUS }) {
 }
 
 /** How someone is paid, for the table: the method, or a flag when nothing usable is on file. */
-function payoutLabel(e: Employee): { label: string; title?: string; missing: boolean } {
+function payoutLabel(e: Employee): { label: string; title?: string; missing: boolean; method?: PayoutMethod } {
   if (!e.payout) return { label: "Not set", title: "No payment details on file: paid by hand", missing: true };
   const { method, account } = e.payout;
-  if (payoutError(method, account)) return { label: `${PAYOUT_METHODS[method].label} · check`, title: "The number or account on file isn't valid", missing: true };
-  return { label: PAYOUT_METHODS[method].label, title: isBatch(method) ? payoutAccount(method, account) : undefined, missing: false };
+  if (payoutError(method, account)) return { label: `${PAYOUT_METHODS[method].label} · check`, title: "The number or account on file isn't valid", missing: true, method };
+  return { label: PAYOUT_METHODS[method].label, title: isBatch(method) ? payoutAccount(method, account) : undefined, missing: false, method };
 }
 
 function Money({ value, strong, className }: { value: number; strong?: boolean; className?: string }) {
