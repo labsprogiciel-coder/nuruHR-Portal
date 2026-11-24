@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { BriefcaseIcon, CakeIcon, MailIcon, MapPinIcon, PhoneIcon, RotateCcwIcon } from "lucide-react";
+import { useState } from "react";
+import { BriefcaseIcon, CakeIcon, MailIcon, MapPinIcon, PencilIcon, PhoneIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Field } from "@/components/dialogs/field";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { fromKey, MONTHS } from "@/lib/dates";
+import { formatLong, fromKey, MONTHS } from "@/lib/dates";
 import type { Profile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useToday } from "@/hooks/use-today";
@@ -49,80 +50,147 @@ function validate(p: Profile): Partial<Record<keyof Profile, string>> {
   else if (!EMAIL_RE.test(p.email.trim())) errors.email = "Enter a valid email address.";
   if (!p.initials.trim()) errors.initials = "Add 1–3 initials.";
   if (p.bio.length > BIO_MAX) errors.bio = `Keep it under ${BIO_MAX} characters.`;
-  if (p.startDate && p.birthday && p.birthday >= p.startDate) errors.birthday = "Birthday must be before your start date.";
+  if (p.startDate && p.birthday && p.birthday >= p.startDate) {
+    errors.birthday = "Birthday must be before your start date.";
+    errors.startDate = "Your start date must be after your birthday.";
+  }
   return errors;
 }
+
+type SectionId = "basic" | "work" | "personal" | "about";
+
+/** What each section holds. The page shows them read-only; each opens its own edit dialog. */
+const SECTIONS: Record<SectionId, { title: string; description: string; keys: (keyof Profile)[] }> = {
+  basic: { title: "Basic information", description: "How you appear across the workspace", keys: ["name", "initials", "email", "phone"] },
+  work: { title: "Work", description: "Your role and reporting line", keys: ["jobTitle", "department", "manager", "location", "startDate"] },
+  personal: { title: "Personal", description: "Only visible to People Ops", keys: ["birthday", "emergencyContact", "address"] },
+  about: { title: "About", description: "A short intro for your teammates", keys: ["bio"] },
+};
+
+const blank = <span className="text-placeholder">Not set</span>;
+const text = (v: string) => (v.trim() ? v : blank);
+const date = (v: string) => (v ? formatLong(v) : blank);
 
 export function PersonalDetailsPage() {
   const today = useToday();
   const profile = useAppStore((s) => s.profile);
-  const updateProfile = useAppStore((s) => s.updateProfile);
+  const [editing, setEditing] = useState<SectionId | null>(null);
 
-  // Only the fields the user touched are kept locally; everything else reads
-  // through to the store, so a late store hydration never clobbers the form.
-  const [edits, setEdits] = useState<Partial<Profile>>({});
-  const [showErrors, setShowErrors] = useState(false);
-
-  const draft = useMemo(() => ({ ...profile, ...edits }), [profile, edits]);
-  const changed = useMemo(
-    () => (Object.keys(edits) as (keyof Profile)[]).filter((k) => edits[k] !== profile[k]),
-    [edits, profile],
+  const t = tenure(profile.startDate, today);
+  const birthday = profile.birthday ? fromKey(profile.birthday) : null;
+  const section = (id: SectionId, rows: [string, React.ReactNode][]) => (
+    <Card>
+      <CardHeader
+        title={SECTIONS[id].title}
+        description={SECTIONS[id].description}
+        actions={
+          <Button variant="ghost" size="sm" className="h-9 px-3" aria-label={`Edit ${SECTIONS[id].title.toLowerCase()}`} onClick={() => setEditing(id)}>
+            <PencilIcon /> Edit
+          </Button>
+        }
+      />
+      <dl className="divide-y divide-subtle">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex min-h-11 items-start gap-4 px-4 py-2.5 max-sm:flex-col max-sm:gap-1">
+            <dt className="t-14 w-40 shrink-0 text-fg-2">{label}</dt>
+            <dd className="t-14 min-w-0 flex-1 text-pretty break-words text-fg">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
   );
-  const dirty = changed.length > 0;
-  const errors = useMemo(() => validate(draft), [draft]);
-  const hasErrors = Object.keys(errors).length > 0;
 
-  const set = <K extends keyof Profile>(key: K, value: Profile[K]) =>
-    setEdits((e) => {
-      const next = { ...e, [key]: value };
-      if (value === profile[key]) delete next[key];
-      return next;
-    });
+  return (
+    <PageRoot>
+      <PageHeader title="Your profile" description="Shared with your manager and People Ops" />
+      <div className="mx-auto grid w-full max-w-[1040px] grid-cols-1 items-start gap-3 p-4 md:gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+        {/* Summary */}
+        <Card className="lg:sticky lg:top-[84px]">
+          {/* Below lg the summary is a compact horizontal header; the sidebar card from lg. */}
+          <div className="flex items-center gap-3.5 p-4 lg:flex-col lg:gap-3 lg:px-4 lg:pt-6 lg:pb-5 lg:text-center">
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-[16px] bg-brand-tint lg:size-16 lg:rounded-[18px]">
+              <span className="font-inter text-[20px] leading-none font-semibold tracking-[-0.3px] text-brand lg:text-[22px] lg:tracking-[-0.33px]">
+                {profile.initials.toUpperCase() || "?"}
+              </span>
+            </span>
+            <div className="grid min-w-0 gap-2">
+              <p className="t-16 text-fg">{profile.name || "Your name"}</p>
+              <p className="t-14 text-fg-2">{[profile.jobTitle, profile.department].filter(Boolean).join(" · ") || "Add a job title"}</p>
+            </div>
+          </div>
+          <ul className="grid gap-x-4 gap-y-3 border-t border-subtle px-4 py-4 sm:grid-cols-2 lg:grid-cols-1" data-catalog>
+            <SummaryRow icon={<MailIcon />}>{profile.email || "—"}</SummaryRow>
+            <SummaryRow icon={<PhoneIcon />}>{profile.phone || "—"}</SummaryRow>
+            <SummaryRow icon={<MapPinIcon />}>{profile.location || "—"}</SummaryRow>
+            <SummaryRow icon={<BriefcaseIcon />}>
+              {profile.startDate ? `Joined ${MONTHS[fromKey(profile.startDate).getMonth()].slice(0, 3)} ${profile.startDate.slice(0, 4)}` : "—"}
+              {t ? <span className="text-placeholder"> · {t}</span> : null}
+            </SummaryRow>
+            <SummaryRow icon={<CakeIcon />} className="sm:col-span-2 lg:col-span-1">
+              {birthday ? `${MONTHS[birthday.getMonth()]} ${birthday.getDate()}` : "—"}
+            </SummaryRow>
+          </ul>
+        </Card>
 
-  const reset = () => {
-    setEdits({});
-    setShowErrors(false);
+        <div className="grid min-w-0 gap-4">
+          {section("basic", [
+            ["Full name", text(profile.name)],
+            ["Initials", text(profile.initials)],
+            ["Email", text(profile.email)],
+            ["Phone", text(profile.phone)],
+          ])}
+          {section("work", [
+            ["Job title", text(profile.jobTitle)],
+            ["Department", text(profile.department)],
+            ["Manager", text(profile.manager)],
+            ["Location", text(profile.location)],
+            ["Start date", profile.startDate ? `${formatLong(profile.startDate)}${t ? ` · ${t}` : ""}` : blank],
+          ])}
+          {section("personal", [
+            ["Birthday", date(profile.birthday)],
+            ["Emergency contact", text(profile.emergencyContact)],
+            ["Home address", text(profile.address)],
+          ])}
+          {section("about", [["Bio", profile.bio.trim() ? <span className="whitespace-pre-wrap">{profile.bio}</span> : blank]])}
+        </div>
+      </div>
+
+      <SectionDialog section={editing} profile={profile} today={today} onClose={() => setEditing(null)} />
+    </PageRoot>
+  );
+}
+
+/**
+ * Edits one section of the profile. Nothing on the page changes until Save, so a stray
+ * keystroke can't alter the details HR relies on.
+ */
+function SectionDialog({ section, profile, today, onClose }: { section: SectionId | null; profile: Profile; today: string; onClose: () => void }) {
+  return (
+    <Dialog open={!!section} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-h-[92dvh] gap-5 overflow-y-auto p-5 sm:max-w-[520px]">
+        {/* Remounts per section, so each opens on the saved values */}
+        {section ? <SectionForm key={section} section={section} profile={profile} today={today} onClose={onClose} /> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SectionForm({ section, profile, today, onClose }: { section: SectionId; profile: Profile; today: string; onClose: () => void }) {
+  const updateProfile = useAppStore((s) => s.updateProfile);
+  const { title, description, keys } = SECTIONS[section];
+  const [draft, setDraft] = useState<Profile>(profile);
+  const [showErrors, setShowErrors] = useState(false);
+  const [touched, setTouched] = useState<Set<keyof Profile>>(new Set());
+
+  const set = <K extends keyof Profile>(key: K, value: Profile[K]) => {
+    setDraft((d) => ({ ...d, [key]: value }));
+    setTouched((s) => new Set(s).add(key));
   };
-
-  const save = () => {
-    if (!dirty) return;
-    if (hasErrors) {
-      setShowErrors(true);
-      toast.error("Check the highlighted fields", { description: "Some details need fixing before saving." });
-      return;
-    }
-    const patch: Partial<Profile> = {};
-    for (const k of changed) (patch as Record<string, string>)[k] = (draft[k] as string).trim();
-    if (patch.initials) patch.initials = patch.initials.toUpperCase();
-    updateProfile(patch);
-    setEdits({});
-    setShowErrors(false);
-    toast.success("Profile saved", {
-      description: `${changed.length} ${changed.length === 1 ? "field" : "fields"} updated`,
-    });
-  };
-
-  // ⌘S / Ctrl+S saves; warn before leaving with unsaved edits.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        document.getElementById("profile-save")?.click();
-      }
-    };
-    const onUnload = (e: BeforeUnloadEvent) => {
-      if (dirty) e.preventDefault();
-    };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("beforeunload", onUnload);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("beforeunload", onUnload);
-    };
-  }, [dirty]);
-
+  const changed = keys.filter((k) => String(draft[k]).trim() !== String(profile[k]));
+  const errors = validate(draft);
+  const hasErrors = keys.some((k) => errors[k]);
   // Errors show once a field has been edited, or for every field after a failed save.
-  const err = (k: keyof Profile) => ((showErrors || k in edits) && errors[k]) || null;
+  const err = (k: keyof Profile) => ((showErrors || touched.has(k)) && errors[k]) || null;
   const input = (k: keyof Profile, { className, ...props }: React.ComponentProps<typeof Input> = {}) => (
     <Input
       id={`pd-${k}`}
@@ -133,188 +201,125 @@ export function PersonalDetailsPage() {
       {...props}
     />
   );
-
   const t = tenure(draft.startDate, today);
-  const birthday = draft.birthday ? fromKey(draft.birthday) : null;
+  const suggested = initialsFrom(draft.name);
 
   return (
-    <PageRoot>
-      <PageHeader
-        title="Your profile"
-        description={
-          dirty ? (
-            <>
-              {changed.length} unsaved {changed.length === 1 ? "change" : "changes"}
-              <span className="max-md:hidden"> · ⌘S to save</span>
-            </>
-          ) : (
-            "Shared with your manager and People Ops"
-          )
+    <form
+      className="contents"
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (hasErrors) return setShowErrors(true);
+        if (changed.length) {
+          const patch: Partial<Profile> = {};
+          for (const k of changed) (patch as Record<string, string>)[k] = String(draft[k]).trim();
+          if (patch.initials) patch.initials = patch.initials.toUpperCase();
+          updateProfile(patch);
+          toast.success("Profile saved", { description: `${title} · ${changed.length} ${changed.length === 1 ? "field" : "fields"} updated` });
         }
-        actions={
-          // Phones get a sticky save bar at the bottom instead (see below).
-          <div className="hidden items-center gap-2 md:flex">
-            <Button onClick={reset} disabled={!dirty}>
-              <RotateCcwIcon className="text-icon" /> Reset
-            </Button>
-            <Button id="profile-save" type="submit" form="profile-form" variant="brand" disabled={!dirty}>
-              Save changes
-            </Button>
-          </div>
-        }
-      />
-      <form
-        id="profile-form"
-        className="mx-auto grid w-full max-w-[1040px] grid-cols-1 items-start gap-3 p-4 md:gap-4 lg:grid-cols-[280px_minmax(0,1fr)]"
-        onSubmit={(e) => {
-          e.preventDefault();
-          save();
-        }}
-        noValidate
-      >
-        {/* Summary */}
-        <Card className="lg:sticky lg:top-[84px]">
-          {/* Below lg the summary is a compact horizontal header; the sidebar card from lg. */}
-          <div className="flex items-center gap-3.5 p-4 lg:flex-col lg:gap-3 lg:px-4 lg:pt-6 lg:pb-5 lg:text-center">
-            <span className="flex size-14 shrink-0 items-center justify-center rounded-[16px] bg-brand-tint lg:size-16 lg:rounded-[18px]">
-              <span className="font-inter text-[20px] leading-none font-semibold tracking-[-0.3px] text-brand lg:text-[22px] lg:tracking-[-0.33px]">
-                {draft.initials.toUpperCase() || "?"}
-              </span>
-            </span>
-            <div className="grid min-w-0 gap-2">
-              <p className="t-16 text-fg">{draft.name || "Your name"}</p>
-              <p className="t-14 text-fg-2">
-                {[draft.jobTitle, draft.department].filter(Boolean).join(" · ") || "Add a job title"}
-              </p>
-            </div>
-          </div>
-          <ul className="grid gap-x-4 gap-y-3 border-t border-subtle px-4 py-4 sm:grid-cols-2 lg:grid-cols-1" data-catalog>
-            <SummaryRow icon={<MailIcon />}>{draft.email || "—"}</SummaryRow>
-            <SummaryRow icon={<PhoneIcon />}>{draft.phone || "—"}</SummaryRow>
-            <SummaryRow icon={<MapPinIcon />}>{draft.location || "—"}</SummaryRow>
-            <SummaryRow icon={<BriefcaseIcon />}>
-              {draft.startDate ? `Joined ${MONTHS[fromKey(draft.startDate).getMonth()].slice(0, 3)} ${draft.startDate.slice(0, 4)}` : "—"}
-              {t ? <span className="text-placeholder"> · {t}</span> : null}
-            </SummaryRow>
-            <SummaryRow icon={<CakeIcon />} className="sm:col-span-2 lg:col-span-1">
-              {birthday ? `${MONTHS[birthday.getMonth()]} ${birthday.getDate()}` : "—"}
-            </SummaryRow>
-          </ul>
-        </Card>
+        onClose();
+      }}
+    >
+      <DialogHeader className="gap-1.5">
+        <DialogTitle className="t-16">Edit {title.toLowerCase()}</DialogTitle>
+        <DialogDescription className="t-14">{description}</DialogDescription>
+      </DialogHeader>
 
-        <div className="grid min-w-0 gap-4">
-          <Section title="Basic information" description="How you appear across the workspace">
-            <div className="grid grid-cols-[minmax(0,1fr)_88px] items-start gap-3 sm:grid-cols-[minmax(0,1fr)_120px] sm:gap-4">
-              <Field label="Full name" htmlFor="pd-name" error={err("name")}>
-                {input("name", { autoComplete: "name", required: true })}
-              </Field>
-              <Field label="Initials" htmlFor="pd-initials" error={err("initials")}>
-                {input("initials", {
-                  maxLength: 3,
-                  className: "uppercase",
-                  onChange: (e) => set("initials", e.target.value.toUpperCase().replace(/[^A-Z]/g, "")),
-                })}
-              </Field>
-            </div>
-            {initialsFrom(draft.name) && initialsFrom(draft.name) !== draft.initials ? (
-              <button
-                type="button"
-                onClick={() => set("initials", initialsFrom(draft.name))}
-                className="t-12 -mt-2 inline-flex min-h-[36px] w-fit items-center text-brand outline-none hover-fine:text-brand-strong focus-visible:underline"
-              >
-                Use “{initialsFrom(draft.name)}” from your name
-              </button>
-            ) : null}
-            <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
-              <Field label="Email" htmlFor="pd-email" error={err("email")}>
-                {input("email", { type: "email", autoComplete: "email", required: true })}
-              </Field>
-              <Field label="Phone" htmlFor="pd-phone">
-                {input("phone", { type: "tel", autoComplete: "tel", placeholder: "+226 70 00 00 00" })}
-              </Field>
-            </div>
-          </Section>
-
-          <Section title="Work" description="Your role and reporting line">
-            <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
-              <Field label="Job title" htmlFor="pd-jobTitle">
-                {input("jobTitle", { autoComplete: "organization-title" })}
-              </Field>
-              <Field label="Department" htmlFor="pd-department">
-                {input("department")}
-              </Field>
-              <Field label="Manager" htmlFor="pd-manager">
-                {input("manager")}
-              </Field>
-              <Field label="Location" htmlFor="pd-location">
-                {input("location", { placeholder: "City, Country" })}
-              </Field>
-              <Field label="Start date" htmlFor="pd-startDate" hint={t ? `${t} at the company` : undefined} className="sm:col-span-2">
-                {input("startDate", { type: "date", max: today })}
-              </Field>
-            </div>
-          </Section>
-
-          <Section title="Personal" description="Only visible to People Ops">
-            <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
-              <Field label="Birthday" htmlFor="pd-birthday" error={err("birthday")}>
-                {input("birthday", { type: "date", max: today })}
-              </Field>
-              <Field label="Emergency contact" htmlFor="pd-emergencyContact" hint="Name and phone number">
-                {input("emergencyContact", { placeholder: "Name · phone" })}
-              </Field>
-              <Field label="Home address" htmlFor="pd-address" className="sm:col-span-2">
-                {input("address", { autoComplete: "street-address" })}
-              </Field>
-            </div>
-          </Section>
-
-          <Section title="About" description="A short intro for your teammates">
-            <Field
-              label="Bio"
-              htmlFor="pd-bio"
-              error={err("bio")}
-              hint={
-                <span className={cn("tabular-nums", draft.bio.length > BIO_MAX * 0.9 && "text-warning")}>
-                  {draft.bio.length}/{BIO_MAX}
-                </span>
-              }
-            >
-              <Textarea
-                id="pd-bio"
-                className="max-md:text-[16px]"
-                rows={3}
-                value={draft.bio}
-                onChange={(e) => set("bio", e.target.value)}
-                placeholder="What you work on, what you love…"
-                aria-invalid={err("bio") ? true : undefined}
-              />
+      {section === "basic" ? (
+        <div className="grid gap-4">
+          <div className="grid grid-cols-[minmax(0,1fr)_88px] items-start gap-3 sm:grid-cols-[minmax(0,1fr)_120px] sm:gap-4">
+            <Field label="Full name" htmlFor="pd-name" error={err("name")}>
+              {input("name", { autoComplete: "name", required: true })}
             </Field>
-          </Section>
+            <Field label="Initials" htmlFor="pd-initials" error={err("initials")}>
+              {input("initials", {
+                maxLength: 3,
+                className: "uppercase",
+                onChange: (e) => set("initials", e.target.value.toUpperCase().replace(/[^A-Z]/g, "")),
+              })}
+            </Field>
+          </div>
+          {suggested && suggested !== draft.initials ? (
+            <button
+              type="button"
+              onClick={() => set("initials", suggested)}
+              className="t-12 -mt-2 inline-flex min-h-[36px] w-fit items-center text-brand outline-none hover-fine:text-brand-strong focus-visible:underline"
+            >
+              Use “{suggested}” from your name
+            </button>
+          ) : null}
+          <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+            <Field label="Email" htmlFor="pd-email" error={err("email")}>
+              {input("email", { type: "email", autoComplete: "email", required: true })}
+            </Field>
+            <Field label="Phone" htmlFor="pd-phone">
+              {input("phone", { type: "tel", autoComplete: "tel", placeholder: "+226 70 00 00 00" })}
+            </Field>
+          </div>
         </div>
-      </form>
-
-      {/* Phones: unsaved edits surface a save bar pinned above the home indicator. */}
-      {dirty ? (
-        <div className="sticky bottom-0 z-10 mt-auto flex gap-2 border-t border-hairline bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] duration-200 ease-(--ease-out) animate-in fade-in-0 slide-in-from-bottom-4 md:hidden">
-          <Button className="h-10 px-3.5" onClick={reset}>
-            <RotateCcwIcon className="text-icon" /> Reset
-          </Button>
-          <Button type="submit" form="profile-form" variant="brand" className="h-10 flex-1">
-            Save {changed.length === 1 ? "change" : `${changed.length} changes`}
-          </Button>
+      ) : section === "work" ? (
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+          <Field label="Job title" htmlFor="pd-jobTitle">
+            {input("jobTitle", { autoComplete: "organization-title" })}
+          </Field>
+          <Field label="Department" htmlFor="pd-department">
+            {input("department")}
+          </Field>
+          <Field label="Manager" htmlFor="pd-manager">
+            {input("manager")}
+          </Field>
+          <Field label="Location" htmlFor="pd-location">
+            {input("location", { placeholder: "City, Country" })}
+          </Field>
+          <Field label="Start date" htmlFor="pd-startDate" hint={t ? `${t} at the company` : undefined} error={err("startDate")} className="sm:col-span-2">
+            {input("startDate", { type: "date", max: today })}
+          </Field>
         </div>
-      ) : null}
-    </PageRoot>
-  );
-}
+      ) : section === "personal" ? (
+        <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2">
+          <Field label="Birthday" htmlFor="pd-birthday" error={err("birthday")}>
+            {input("birthday", { type: "date", max: today })}
+          </Field>
+          <Field label="Emergency contact" htmlFor="pd-emergencyContact" hint="Name and phone number">
+            {input("emergencyContact", { placeholder: "Name · phone" })}
+          </Field>
+          <Field label="Home address" htmlFor="pd-address" className="sm:col-span-2">
+            {input("address", { autoComplete: "street-address" })}
+          </Field>
+        </div>
+      ) : (
+        <Field
+          label="Bio"
+          htmlFor="pd-bio"
+          error={err("bio")}
+          hint={
+            <span className={cn("tabular-nums", draft.bio.length > BIO_MAX * 0.9 && "text-warning")}>
+              {draft.bio.length}/{BIO_MAX}
+            </span>
+          }
+        >
+          <Textarea
+            id="pd-bio"
+            className="max-md:text-[16px]"
+            rows={4}
+            value={draft.bio}
+            onChange={(e) => set("bio", e.target.value)}
+            placeholder="What you work on, what you love…"
+            aria-invalid={err("bio") ? true : undefined}
+          />
+        </Field>
+      )}
 
-function Section({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
-  return (
-    <Card>
-      <CardHeader title={title} description={description} />
-      <div className="grid gap-4 p-4">{children}</div>
-    </Card>
+      <DialogFooter className="-mx-5 -mb-5 bg-app px-5 py-3">
+        <Button type="button" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="brand" disabled={!changed.length}>
+          Save changes
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
 

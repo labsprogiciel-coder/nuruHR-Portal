@@ -187,7 +187,11 @@ export type Employee = {
   departure?: Departure;
   /** Allowances paid every month on top of the base salary, in FCFA */
   allowances?: Partial<Record<AllowanceKind, number>>;
+  /** How their salary is paid, and the number or account it goes to */
+  payout?: { method: PayoutMethod; account: string };
 };
+
+export type PayoutMethod = "wave" | "orange-money" | "pi-spi" | "bank" | "cash";
 
 export type AllowanceKind = "housing" | "transport" | "function" | "other";
 
@@ -233,6 +237,8 @@ export type PayrollRun = {
   status: "validated" | "paid";
   validatedAt: string;
   paidAt?: string;
+  /** How the month was paid out: one entry per method used */
+  payments?: { method: PayoutMethod; employees: number; total: number }[];
   /** Payslips frozen at validation, by employee id, so later raises don't rewrite a closed month */
   lines?: Record<string, Payslip>;
 };

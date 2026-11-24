@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDaysIcon, CalendarPlusIcon, FileTextIcon, MoonIcon, PlaneIcon, ReceiptIcon, SunIcon } from "lucide-react";
+import { CalendarDaysIcon, CalendarPlusIcon, FileTextIcon, MoonIcon, PlaneIcon, ReceiptIcon, SunIcon, UserIcon } from "lucide-react";
 import { Icon } from "@/components/icon";
 import {
   Command,
@@ -17,7 +17,8 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { formatLong, formatShort, formatTimeRange } from "@/lib/dates";
-import { ALL_PAGES } from "@/lib/nav";
+import { SHOW_MY_SPACE, VISIBLE_PAGES } from "@/lib/nav";
+import { employees } from "@/lib/team";
 import { useToday } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
 import { useCalendarStore } from "@/stores/calendar-store";
@@ -54,6 +55,9 @@ export function GlobalSearch() {
   const requests = useAppStore((s) => s.requests);
   const documents = useAppStore((s) => s.documents);
   const invoices = useAppStore((s) => s.invoices);
+  const profile = useAppStore((s) => s.profile);
+  const rawTeam = useAppStore((s) => s.team);
+  const team = useMemo(() => employees({ team: rawTeam, profile }), [rawTeam, profile]);
   const timeFormat = useAppStore((s) => s.settings.timeFormat);
   const { resolvedTheme, setTheme } = useTheme();
   const today = useToday();
@@ -91,38 +95,59 @@ export function GlobalSearch() {
       open={open}
       onOpenChange={(v) => !v && close()}
       title="Search"
-      description="Search pages, events, requests and documents"
+      description="Search employees and pages"
       className="data-open:animate-none data-closed:animate-none sm:max-w-[560px] max-sm:top-2 max-sm:bottom-auto max-sm:left-2 max-sm:w-[calc(100%-1rem)] max-sm:max-h-[70dvh] max-sm:rounded-2xl max-sm:pb-0"
     >
       {/* cmdk needs a <Command> root around its input and list. */}
       <Command>
-        <CommandInput value={query} onValueChange={setQuery} placeholder="Search events, requests, documents…" />
+        <CommandInput value={query} onValueChange={setQuery} placeholder={SHOW_MY_SPACE ? "Search events, requests, documents…" : "Search employees and pages…"} />
         <CommandList className="max-h-[380px]">
           <CommandEmpty className="t-14 text-fg-2">No results found.</CommandEmpty>
           <CommandGroup heading="Actions">
-            <CommandItem onSelect={() => run(() => openOverlay({ kind: "request" }))}>
-              <PlaneIcon /> Request time-off
-            </CommandItem>
-            <CommandItem onSelect={() => run(() => openOverlay({ kind: "event", date: today }))}>
-              <CalendarPlusIcon /> New event
-              <CommandShortcut>N</CommandShortcut>
-            </CommandItem>
-            <CommandItem onSelect={() => run(() => showInCalendar(today))}>
-              <CalendarDaysIcon /> Go to today
-              <CommandShortcut>T</CommandShortcut>
-            </CommandItem>
+            {SHOW_MY_SPACE ? (
+              <>
+                <CommandItem onSelect={() => run(() => openOverlay({ kind: "request" }))}>
+                  <PlaneIcon /> Request time-off
+                </CommandItem>
+                <CommandItem onSelect={() => run(() => openOverlay({ kind: "event", date: today }))}>
+                  <CalendarPlusIcon /> New event
+                  <CommandShortcut>N</CommandShortcut>
+                </CommandItem>
+                <CommandItem onSelect={() => run(() => showInCalendar(today))}>
+                  <CalendarDaysIcon /> Go to today
+                  <CommandShortcut>T</CommandShortcut>
+                </CommandItem>
+              </>
+            ) : null}
             <CommandItem onSelect={() => run(() => setTheme(resolvedTheme === "dark" ? "light" : "dark"))}>
               {resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />} Toggle dark mode
             </CommandItem>
           </CommandGroup>
           <CommandSeparator />
           <CommandGroup heading="Pages">
-            {ALL_PAGES.map((p) => (
+            {VISIBLE_PAGES.map((p) => (
               <CommandItem key={p.href} value={`page ${p.label}`} onSelect={() => run(() => router.push(p.href))}>
                 <Icon name={p.icon} /> {p.label}
               </CommandItem>
             ))}
           </CommandGroup>
+          <CommandSeparator />
+          <CommandGroup heading="Employees">
+            {team.map((e) => (
+              <CommandItem
+                key={e.id}
+                value={`employee ${e.name} ${e.jobTitle} ${e.department} ${e.id}`}
+                onSelect={() => run(() => router.push(`/admin/employees/${e.id}`))}
+              >
+                <UserIcon />
+                <span className="min-w-0 flex-1 truncate">{e.name}</span>
+                <CommandShortcut className="tracking-normal">{e.jobTitle}</CommandShortcut>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          {/* The signed-in person's own events, requests, documents and invoices */}
+          {SHOW_MY_SPACE ? (
+            <>
           <CommandSeparator />
           <CommandGroup heading="Events">
             {sortedEvents.map((e) => (
@@ -177,6 +202,8 @@ export function GlobalSearch() {
               </CommandItem>
             ))}
           </CommandGroup>
+            </>
+          ) : null}
         </CommandList>
       </Command>
     </CommandDialog>

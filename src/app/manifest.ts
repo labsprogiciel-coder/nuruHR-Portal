@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Nuru",
     short_name: "Nuru",
     description: "HR for West African businesses: time off, holidays, payslips and payouts in FCFA.",
-    start_url: "/time-off",
+    start_url: "/admin",
     display: "standalone",
     background_color: "#f3f6f4",
     theme_color: "#1f6f5c",

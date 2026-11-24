@@ -7,7 +7,7 @@ import { Field } from "@/components/dialogs/field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { formatLong, formatShort } from "@/lib/dates";
+import { formatLong, formatShort, formatTimeRange } from "@/lib/dates";
 import { DEDUCTED, FAMILY_EVENT_DAYS } from "@/lib/labour-code";
 import { formatDays, LEAVE_COLORS, type LeaveStats } from "@/lib/leave";
 import { allRequests, employeeLeaveStats, employees as withProfile, isCurrent } from "@/lib/team";
@@ -79,7 +79,7 @@ export function dateRange(r: Pick<TeamRequest, "from" | "to">) {
 }
 
 /** What approving this request does to the employee's balance, per the Labour Code. */
-function balanceNote(r: TeamRequest, stats: LeaveStats | undefined) {
+export function balanceNote(r: TeamRequest, stats: LeaveStats | undefined) {
   if (r.type === "Sick") return "Not deducted · needs a medical certificate";
   if (r.type === "Maternity") return "Not deducted · 14 weeks";
   if (!stats) return null;
@@ -109,6 +109,7 @@ export function ApprovalRow({
   const review = useAppStore((s) => s.reviewRequest);
   const note = r.status === "pending" ? balanceNote(r, stats) : null;
   const [declining, setDeclining] = useState(false);
+  const [viewing, setViewing] = useState(false);
 
   return (
     <li className="flex items-start gap-3 px-4 py-3 max-md:flex-wrap">
@@ -125,9 +126,14 @@ export function ApprovalRow({
             {r.type}
           </span>
         </div>
-        <p className="t-14 text-table">
+        <button
+          type="button"
+          onClick={() => setViewing(true)}
+          aria-label={`View ${employee?.name ? `${employee.name}’s ` : ""}${r.type} request`}
+          className="t-14 w-fit max-w-full text-left text-table outline-none hover-fine:underline focus-visible:underline"
+        >
           {dateRange(r)} · {r.duration}
-        </p>
+        </button>
         {r.notes ? <p className="t-12 line-clamp-2 leading-[1.4] text-fg-2">{r.notes}</p> : null}
         {note ? <p className="t-12 text-fg-2">{note}</p> : null}
         {r.status === "declined" && r.declineReason ? <p className="t-12 leading-[1.4] text-fg-2">Declined: {r.declineReason}</p> : null}
@@ -144,6 +150,15 @@ export function ApprovalRow({
       ) : (
         <StatusBadge status={r.status} />
       )}
+      <TeamRequestDialog
+        open={viewing}
+        request={r}
+        employee={employee}
+        balance={note}
+        onClose={() => setViewing(false)}
+        onApprove={() => review(r.id, "approved")}
+        onDecline={() => setDeclining(true)}
+      />
       <DeclineDialog
         open={declining}
         who={employee?.name}
@@ -155,8 +170,98 @@ export function ApprovalRow({
   );
 }
 
+/**
+ * A colleague's request in full, for HR: the whole note, exact dates and hours, when it was
+ * sent, the effect on their balance and, once decided, the reason given.
+ */
+export function TeamRequestDialog({
+  open,
+  request: r,
+  employee,
+  balance,
+  onClose,
+  onApprove,
+  onDecline,
+}: {
+  open: boolean;
+  request: TeamRequest;
+  employee: Employee | undefined;
+  balance: string | null;
+  onClose: () => void;
+  onApprove: () => void;
+  onDecline: () => void;
+}) {
+  const timeFormat = useAppStore((s) => s.settings.timeFormat);
+  const rows: [string, React.ReactNode][] = [
+    ["Leave type", r.type],
+    ["Duration", r.duration],
+    ["From", formatLong(r.from)],
+    ["To", formatLong(r.to)],
+    ...(!r.allDay && r.start !== undefined && r.end !== undefined ? ([["Hours", formatTimeRange(r.start, r.end, timeFormat)]] as [string, React.ReactNode][]) : []),
+    ["Submitted", formatLong(r.submittedAt.slice(0, 10))],
+    ...(balance ? ([["Balance", balance]] as [string, React.ReactNode][]) : []),
+    ...(r.status === "declined" && r.declineReason ? ([["Reason given", r.declineReason]] as [string, React.ReactNode][]) : []),
+  ];
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="gap-5 p-5 sm:max-w-[460px]">
+        <DialogHeader className="gap-3">
+          <StatusBadge status={r.status} className="self-start" />
+          <DialogTitle className="t-16 leading-[1.3]">
+            {employee ? `${employee.name} · ` : ""}
+            {r.type}
+          </DialogTitle>
+          <DialogDescription className="t-14 leading-[1.45] whitespace-pre-wrap text-fg-2">{r.notes || "No note was added."}</DialogDescription>
+        </DialogHeader>
+        <dl className="grid gap-3">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex items-start justify-between gap-4">
+              <dt className="t-14 shrink-0 text-fg-2">{k}</dt>
+              <dd className="t-14 text-right text-pretty text-table">{v}</dd>
+            </div>
+          ))}
+        </dl>
+        <DialogFooter className="-mx-5 -mb-5 bg-app px-5 py-3">
+          {employee ? (
+            <Button asChild className="sm:mr-auto">
+              <Link href={`/admin/employees/${employee.id}`}>Open their file</Link>
+            </Button>
+          ) : null}
+          {r.status === "pending" ? (
+            <>
+              <Button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onDecline();
+                }}
+              >
+                <XIcon /> Decline
+              </Button>
+              <Button
+                type="button"
+                variant="brand"
+                onClick={() => {
+                  onApprove();
+                  onClose();
+                }}
+              >
+                <CheckIcon /> Approve
+              </Button>
+            </>
+          ) : (
+            <Button type="button" onClick={onClose}>
+              Close
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /** Declining asks for a reason, so the employee is told why and not only that it was refused. */
-function DeclineDialog({
+export function DeclineDialog({
   open,
   who,
   what,
