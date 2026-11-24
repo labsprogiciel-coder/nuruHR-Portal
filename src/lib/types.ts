@@ -35,6 +35,8 @@ export type LeaveRequest = {
   end?: number;
   notes: string;
   submittedAt: string;
+  /** Why it was declined, as HR wrote it for the employee */
+  declineReason?: string;
 };
 
 export type Holiday = {

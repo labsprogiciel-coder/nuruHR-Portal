@@ -258,7 +258,7 @@ function seedData(): AppState {
         body: "Your half-day leave on Nov 13 was approved by Issouf.",
         createdAt: "2026-10-25T16:20:00.000Z",
         read: true,
-        href: "/time-off",
+        href: "/time-off/requests",
       },
       {
         id: "no-2",

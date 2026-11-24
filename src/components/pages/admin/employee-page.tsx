@@ -17,6 +17,16 @@ import {
   UserXIcon,
 } from "lucide-react";
 import { Icon } from "@/components/icon";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -61,6 +71,7 @@ export function EmployeePage({ id }: { id: string }) {
   const cancelDeparture = useAppStore((s) => s.cancelDeparture);
   const [editing, setEditing] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const assets = useMemo(() => allAssets.filter((a) => a.employeeId === id), [allAssets, id]);
   const [assigning, setAssigning] = useState<Asset | null>(null);
   const [tab, setTab] = useState<Tab>("info");
@@ -165,7 +176,7 @@ export function EmployeePage({ id }: { id: string }) {
                         <FileTextIcon /> Work certificate
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={() => cancelDeparture(e.id)}>
+                      <DropdownMenuItem onSelect={() => setCancelling(true)}>
                         <UndoIcon /> {left ? "Bring back to the team" : "Cancel departure"}
                       </DropdownMenuItem>
                     </>
@@ -398,6 +409,22 @@ export function EmployeePage({ id }: { id: string }) {
       </div>
       <AssignAssetDialog asset={assigning} employees={employees} onClose={() => setAssigning(null)} />
       <EmployeeDialog open={editing} employee={e} team={everyone} onClose={() => setEditing(false)} />
+      <AlertDialog open={cancelling && !!e.departure} onOpenChange={(v) => !v && setCancelling(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="t-16">{left ? `Bring ${e.name} back to the team?` : `Cancel ${e.name}’s departure?`}</AlertDialogTitle>
+            <AlertDialogDescription className="t-14 leading-[1.4]">
+              {e.departure
+                ? `The departure recorded for ${formatLong(e.departure.date)} (${e.departure.reason.toLowerCase()}) is removed, and they count as a current employee again, including in payroll. Equipment already returned stays in stock.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep the departure</AlertDialogCancel>
+            <AlertDialogAction onClick={() => cancelDeparture(e.id)}>{left ? "Bring back" : "Cancel departure"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {e.id !== ME ? (
         <DepartureDialog open={leaving} employee={e} leaveLeft={s.available} assets={assets} today={today} onClose={() => setLeaving(false)} />
       ) : null}

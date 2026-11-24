@@ -107,7 +107,7 @@ src/
     ui/                shadcn/ui primitives, themed
     shell/             sidebar (with search, notifications, help), mobile nav, shortcuts
     calendar/          header, time grid, all-day row, month view, popover
-    time-off/          stats panel, requests table, status badge
+    time-off/          calendar page with the balance, the Leave requests page, status badge
     dialogs/           app-wide dialogs (request, event, details, holidays…)
     pages/             page bodies for the secondary routes
   stores/              Zustand stores (app data, calendar view, overlays)

@@ -1,17 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar } from "@/components/calendar/calendar";
 import { useCalendarStore } from "@/stores/calendar-store";
-import { DEFAULT_FILTERS, RequestsTable, type RequestFilters } from "./requests-table";
+import { showPendingRequests } from "@/stores/request-filters-store";
 import { StatsPanel } from "./stats-panel";
 
-/** Height of the "Leave and requests" block as drawn in the design (toolbar + header + 4 rows). */
-const REQUESTS_PEEK = 321;
-
+/** The leave calendar with the balance beside it. Requests have their own page (Leave requests). */
 export function TimeOffView() {
-  const [filters, setFilters] = useState<RequestFilters>(DEFAULT_FILTERS);
-  const tableRef = useRef<HTMLElement>(null);
+  const router = useRouter();
 
   return (
     <div
@@ -21,22 +18,18 @@ export function TimeOffView() {
     >
       {/* The calendar header shows the month; this names the page */}
       <h1 className="sr-only">Time off</h1>
-      {/* xl+: calendar and stats side by side as designed. Below: stats stack under the calendar. */}
-      <div
-        className="flex w-full shrink-0 flex-col xl:h-(--workspace-h) xl:flex-row xl:overflow-hidden"
-        style={{ "--workspace-h": `max(520px, calc(100% - ${REQUESTS_PEEK}px))` } as React.CSSProperties}
-      >
+      {/* xl+: calendar and stats side by side, filling the page. Below: stats stack under the calendar. */}
+      <div className="flex w-full shrink-0 flex-col xl:h-full xl:min-h-[520px] xl:flex-row xl:overflow-hidden">
         <div className="flex h-[max(460px,calc(100dvh_-_72px))] w-full shrink-0 md:h-[max(560px,calc(100dvh_-_140px))] xl:h-full xl:w-auto xl:min-w-0 xl:flex-1 xl:shrink">
           <Calendar />
         </div>
         <StatsPanel
           onShowPending={() => {
-            setFilters({ ...DEFAULT_FILTERS, statuses: ["pending"] });
-            tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            showPendingRequests();
+            router.push("/time-off/requests");
           }}
         />
       </div>
-      <RequestsTable ref={tableRef} filters={filters} onFiltersChange={setFilters} />
     </div>
   );
 }
