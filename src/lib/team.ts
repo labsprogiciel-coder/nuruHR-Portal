@@ -1,7 +1,8 @@
-import { addDays, diffDays } from "./dates";
+import { addDays, daysInMonth, diffDays } from "./dates";
 import { yearsOfService } from "./labour-code";
 import { computeLeaveStats, type LeaveStats } from "./leave";
-import type { AppState, Employee, TeamRequest } from "./types";
+import { computePayslip } from "./payroll";
+import type { AppState, Employee, PayrollRun, TeamRequest } from "./types";
 
 /** The signed-in user's employee id: their profile and own requests stand in for this record. */
 export const ME = "emp-me";
@@ -41,6 +42,41 @@ export function employedIn(e: Pick<Employee, "startDate" | "contractEnd" | "depa
   const ends = [e.departure?.date, e.contractEnd].filter((d): d is string => !!d).sort();
   const end = ends[0];
   return e.startDate.slice(0, 7) <= month && (!end || end.slice(0, 7) >= month);
+}
+
+/**
+ * The part of `month` ("YYYY-MM") someone was employed, in calendar days: 1 for a full month,
+ * 6/30 for someone who started on 25 November, 0 if they weren't employed at all. Payroll
+ * pro-rates base salary and allowances by it.
+ */
+export function monthShare(e: Pick<Employee, "startDate" | "contractEnd" | "departure">, month: string) {
+  if (!employedIn(e, month)) return 0;
+  const total = daysInMonth(`${month}-01`);
+  const end = [e.departure?.date, e.contractEnd].filter((d): d is string => !!d).sort()[0];
+  const first = e.startDate.slice(0, 7) === month ? Number(e.startDate.slice(8, 10)) : 1;
+  const last = end && end.slice(0, 7) === month ? Number(end.slice(8, 10)) : total;
+  return Math.max(0, last - first + 1) / total;
+}
+
+/**
+ * Gives closed months that have no saved payslips a frozen set, worked out from the team as it
+ * is now. Without them a closed month's payslips would be recalculated on every view and change
+ * with each later raise.
+ */
+export function freezeRuns(runs: Record<string, PayrollRun>, team: Employee[]): Record<string, PayrollRun> {
+  return Object.fromEntries(
+    Object.entries(runs).map(([month, run]) => [
+      month,
+      run.lines
+        ? run
+        : {
+            ...run,
+            lines: Object.fromEntries(
+              team.filter((e) => employedIn(e, month)).map((e) => [e.id, computePayslip(e, {}, 0, monthShare(e, month))]),
+            ),
+          },
+    ]),
+  );
 }
 
 /** "AO" for "Amina Ouédraogo": first letters of the first two words. */

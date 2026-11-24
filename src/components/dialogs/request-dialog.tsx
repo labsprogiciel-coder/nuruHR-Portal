@@ -15,9 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { addDays, formatLong, parseTime, timeInputValue } from "@/lib/dates";
+import { addDays, formatLong, formatShort, parseTime, timeInputValue } from "@/lib/dates";
 import { COUNTED_IN, DEDUCTED, FAMILY_EVENT_DAYS, MATERNITY_WEEKS } from "@/lib/labour-code";
-import { computeLeaveStats, formatDays, LEAVE_COLORS, LEAVE_TYPES } from "@/lib/leave";
+import { computeLeaveStats, formatDays, LEAVE_COLORS, LEAVE_TYPES, overlappingRequest } from "@/lib/leave";
 import type { LeaveRequest, LeaveType } from "@/lib/types";
 import { useToday } from "@/hooks/use-today";
 import { useAppStore, type RequestInput } from "@/stores/app-store";
@@ -74,6 +74,7 @@ function RequestForm({ requestId, from, onDone }: { requestId?: string; from?: s
   );
   const measured = measure(form);
 
+  const clash = overlappingRequest(requests, form, requestId);
   const error =
     form.allDay && form.to < form.from
       ? "End date must be on or after the start date."
@@ -81,7 +82,11 @@ function RequestForm({ requestId, from, onDone }: { requestId?: string; from?: s
         ? "End time must be after the start time."
         : form.allDay && measured.days === 0
           ? "These dates fall on weekends or holidays — nothing to request."
-          : null;
+          : clash
+            ? `You already have ${clash.type.toLowerCase()} ${clash.status === "approved" ? "approved" : "awaiting approval"} for ${
+                clash.from === clash.to ? formatShort(clash.from) : `${formatShort(clash.from)} – ${formatShort(clash.to)}`
+              }.`
+            : null;
   // Sick and maternity leave never touch the allowance; family events only past the yearly free days.
   const deducted =
     form.type === "Family event" ? Math.max(0, measured.days - stats.familyLeft) : DEDUCTED[form.type] ? measured.days : 0;

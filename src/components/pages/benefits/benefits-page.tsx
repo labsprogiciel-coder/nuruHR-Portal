@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app-store";
 import { ClaimDialog } from "./claim-dialog";
 import { CATEGORIES, CategoryTile, formatMoney, type BenefitCategory } from "./shared";
+import { MobileNavButton } from "@/components/shell/mobile-nav";
 
 type Filter = "All" | BenefitCategory;
 
@@ -60,8 +61,9 @@ export function BenefitsPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scroll-thin bg-app">
       <header className="sticky top-0 z-10 flex min-h-[68px] shrink-0 items-center gap-3 border-b border-hairline bg-surface px-4 py-3 md:h-[68px] md:py-0">
+        <MobileNavButton />
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <h2 className="t-16 text-fg">Your benefits</h2>
+          <h1 className="t-16 text-fg">Your benefits</h1>
           <p className="t-14 max-w-[62ch] leading-[1.3] text-fg-2 md:truncate md:leading-none" style={{ maxWidth: "35em" }}>
             {summary.enrolled} of {benefits.length} enrolled · budgets reset on renewal
           </p>

@@ -6,6 +6,7 @@ import { ArrowRightIcon, CalendarCheck2Icon, CalendarHeartIcon, InboxIcon } from
 import { Button } from "@/components/ui/button";
 import { addDays, formatShort } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
+import { computePayslip } from "@/lib/payroll";
 import { plural } from "@/lib/leave";
 import { hrAlerts, inDays, isOff } from "@/lib/team";
 import { useAppStore, selectWorkspaceName } from "@/stores/app-store";
@@ -25,7 +26,7 @@ export function AdminOverviewPage() {
       .filter((r) => r.status === "approved" && r.to >= today && r.from <= horizon)
       .sort((a, b) => a.from.localeCompare(b.from));
     const permanent = employees.filter((e) => e.contract === "CDI").length;
-    const payroll = employees.reduce((n, e) => n + e.monthlySalary, 0);
+    const payroll = employees.reduce((n, e) => n + computePayslip(e).gross, 0);
     return { pending, offToday, away, permanent, payroll, alerts: hrAlerts(employees, today) };
   }, [requests, employees, today]);
 
@@ -73,7 +74,7 @@ export function AdminOverviewPage() {
             icon="available"
             label="Monthly payroll"
             value={formatMoney(data.payroll, undefined, { compact: true })}
-            hint="Gross salaries, before CNSS and tax"
+            hint="Base and allowances, before CNSS and tax"
             href="/admin/payroll"
           />
         </StatGrid>

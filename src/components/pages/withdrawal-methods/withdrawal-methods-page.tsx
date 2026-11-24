@@ -30,6 +30,7 @@ import { useToday } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
 import { AddMethodDialog } from "./add-method-dialog";
 import { KIND_META, KindTile, lastWorkingDay, masked, nextPayoutDate } from "./shared";
+import { MobileNavButton } from "@/components/shell/mobile-nav";
 
 
 export function WithdrawalMethodsPage() {
@@ -71,8 +72,9 @@ export function WithdrawalMethodsPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto scroll-thin bg-app">
       <header className="sticky top-0 z-10 flex min-h-[68px] shrink-0 items-center gap-3 border-b border-hairline bg-surface px-4 py-3 md:h-[68px] md:py-0">
+        <MobileNavButton />
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <h2 className="t-16 text-fg">Withdrawal methods</h2>
+          <h1 className="t-16 text-fg">Withdrawal methods</h1>
           <p className="t-14 max-w-[62ch] leading-[1.3] text-fg-2 md:truncate md:leading-none" style={{ maxWidth: "35em" }}>Where your invoice payments are paid out</p>
         </div>
         {/* Phones: icon-only, so the title keeps the room */}

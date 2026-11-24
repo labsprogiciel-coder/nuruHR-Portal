@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { annualEntitlement, seniorityBonusDays, yearsOfService } from "./labour-code";
-import { computeLeaveStats, countedDays, deductedDays, durationLabel, formatDays, workingDays } from "./leave";
+import { computeLeaveStats, countedDays, deductedDays, durationLabel, formatDays, overlappingRequest, workingDays } from "./leave";
 import { createSeed } from "./seed";
 import type { LeaveRequest } from "./types";
 
@@ -71,5 +71,39 @@ describe("leave rules", () => {
     expect(durationLabel(0, 1)).toBe("1 hour");
     expect(formatDays(0.75)).toBe("0.75");
     expect(formatDays(7)).toBe("7");
+  });
+
+  it("spots leave that overlaps a pending or approved request", () => {
+    const booked = [
+      req({ id: "a", type: "Annual leave", days: 5, from: "2026-11-16", to: "2026-11-20" }),
+      req({ id: "b", type: "Personal", days: 0.25, from: "2026-11-25", allDay: false, start: 540, end: 660 }),
+      req({ id: "c", type: "Annual leave", days: 2, from: "2026-12-01", to: "2026-12-02", status: "declined" }),
+    ];
+    const ask = (from: string, to = from) => ({ from, to, allDay: true });
+    expect(overlappingRequest(booked, ask("2026-11-20", "2026-11-23"))?.id).toBe("a");
+    expect(overlappingRequest(booked, ask("2026-11-21", "2026-11-22"))).toBeUndefined();
+    // Editing a request doesn't clash with itself; declined requests don't block
+    expect(overlappingRequest(booked, ask("2026-11-16", "2026-11-20"), "a")).toBeUndefined();
+    expect(overlappingRequest(booked, ask("2026-12-01"))).toBeUndefined();
+    // Part days clash only when the hours overlap, or with a full day
+    const hours = (start: number, end: number) => ({ from: "2026-11-25", to: "2026-11-25", allDay: false, start, end });
+    expect(overlappingRequest(booked, hours(600, 720))?.id).toBe("b");
+    expect(overlappingRequest(booked, hours(660, 720))).toBeUndefined();
+    expect(overlappingRequest(booked, ask("2026-11-25"))?.id).toBe("b");
+  });
+
+  it("counts leave over New Year in each year for the days taken in it", () => {
+    const seed = createSeed();
+    const holidays = seed.holidays;
+    const all = countedDays("Annual leave", "2026-12-28", "2027-01-05", holidays).length;
+    const in2026 = countedDays("Annual leave", "2026-12-28", "2026-12-31", holidays).length;
+    const in2027 = countedDays("Annual leave", "2027-01-01", "2027-01-05", holidays).length;
+    expect(in2026 + in2027).toBe(all);
+    const over = req({ id: "ny", type: "Annual leave", days: all, from: "2026-12-28", to: "2027-01-05" });
+    const state = { ...seed, requests: [] as LeaveRequest[] };
+    const base26 = computeLeaveStats(state, "2026-11-01").available;
+    const base27 = computeLeaveStats(state, "2027-02-01").available;
+    expect(base26 - computeLeaveStats({ ...state, requests: [over] }, "2026-11-01").available).toBe(in2026);
+    expect(base27 - computeLeaveStats({ ...state, requests: [over] }, "2027-02-01").available).toBe(in2027);
   });
 });

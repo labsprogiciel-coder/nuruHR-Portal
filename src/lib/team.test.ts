@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSeed } from "./seed";
-import { allRequests, employedIn, employeeLeaveStats, employees, hrAlerts, initialsOf, isCurrent, isOff, ME } from "./team";
+import { allRequests, employedIn, freezeRuns, monthShare, employeeLeaveStats, employees, hrAlerts, initialsOf, isCurrent, isOff, ME } from "./team";
 import type { Employee } from "./types";
 
 const TODAY = "2026-10-31";
@@ -116,5 +116,27 @@ describe("hrAlerts", () => {
     const alerts = hrAlerts([e], "2026-11-01");
     expect(alerts.map((a) => a.kind)).toEqual(["departure"]);
     expect(alerts[0].label).toBe("Last day · resignation");
+  });
+
+  it("works out the part of a month someone was employed", () => {
+    const e = (startDate: string, end?: string) => ({ startDate, contractEnd: end });
+    expect(monthShare(e("2020-01-01"), "2026-11")).toBe(1);
+    expect(monthShare(e("2026-11-25"), "2026-11")).toBeCloseTo(6 / 30);
+    expect(monthShare(e("2020-01-01", "2026-11-03"), "2026-11")).toBeCloseTo(3 / 30);
+    expect(monthShare(e("2026-02-15", "2026-02-20"), "2026-02")).toBeCloseTo(6 / 28);
+    expect(monthShare(e("2026-12-01"), "2026-11")).toBe(0);
+    // A departure before the contract end wins
+    expect(monthShare({ startDate: "2020-01-01", contractEnd: "2026-11-30", departure: { date: "2026-11-10", reason: "Resignation", recordedAt: "" } }, "2026-11")).toBeCloseTo(10 / 30);
+  });
+
+  it("freezes closed months that have no payslips, and leaves frozen ones alone", () => {
+    const seed = createSeed();
+    const frozen = freezeRuns({ "2026-10": { month: "2026-10", status: "paid", validatedAt: "" } }, seed.team);
+    const before = frozen["2026-10"].lines![ME].gross;
+    expect(before).toBeGreaterThan(0);
+    const raised = seed.team.map((x) => (x.id === ME ? { ...x, monthlySalary: x.monthlySalary * 2 } : x));
+    expect(freezeRuns(frozen, raised)["2026-10"].lines![ME].gross).toBe(before);
+    // The demo's closed months come frozen
+    expect(Object.values(seed.payrollRuns).every((r) => r.lines && Object.keys(r.lines).length > 0)).toBe(true);
   });
 });

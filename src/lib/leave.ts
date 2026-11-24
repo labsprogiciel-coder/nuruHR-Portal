@@ -47,6 +47,35 @@ export function deductedDays(requests: LeaveRequest[]): Map<string, number> {
   return out;
 }
 
+/**
+ * A pending or approved request that already covers part of the same time. Two part-day
+ * requests on one day only clash when their hours overlap.
+ */
+export function overlappingRequest(
+  requests: LeaveRequest[],
+  input: Pick<LeaveRequest, "from" | "to" | "allDay" | "start" | "end">,
+  excludeId?: string,
+): LeaveRequest | undefined {
+  const to = input.allDay ? input.to : input.from;
+  return requests.find((r) => {
+    if (r.id === excludeId || (r.status !== "pending" && r.status !== "approved")) return false;
+    if (r.from > to || r.to < input.from) return false;
+    if (r.allDay || input.allDay) return true;
+    return (input.start ?? 0) < (r.end ?? 1440) && (r.start ?? 0) < (input.end ?? 1440);
+  });
+}
+
+/**
+ * The part of a request that falls in `year`. Leave over New Year counts in each year for the
+ * days taken in it, instead of all landing in the year it starts.
+ */
+function withinYear(r: LeaveRequest, year: string, holidays: Holiday[]): LeaveRequest {
+  if (!r.allDay || (r.from.slice(0, 4) === year && r.to.slice(0, 4) === year)) return r;
+  const from = r.from.slice(0, 4) < year ? `${year}-01-01` : r.from;
+  const to = r.to.slice(0, 4) > year ? `${year}-12-31` : r.to;
+  return { ...r, from, to, days: countedDays(r.type, from, to, holidays).length };
+}
+
 export function durationLabel(days: number, hours: number): string {
   const parts: string[] = [];
   if (days) parts.push(`${days} ${days === 1 ? "day" : "days"}`);
@@ -84,7 +113,9 @@ export function computeLeaveStats(
   today: string,
 ): LeaveStats {
   const year = today.slice(0, 4);
-  const thisYear = s.requests.filter((r) => r.from.slice(0, 4) === year);
+  const thisYear = s.requests
+    .filter((r) => r.from.slice(0, 4) <= year && r.to.slice(0, 4) >= year)
+    .map((r) => withinYear(r, year, s.holidays));
   const counted = thisYear.filter((r) => r.status === "approved" || r.status === "pending");
   const deducted = deductedDays(counted);
   const sum = (list: LeaveRequest[]) => list.reduce((a, r) => a + (deducted.get(r.id) ?? 0), 0);

@@ -24,6 +24,7 @@ import { useInvoiceUi } from "./invoice-ui-store";
 import { effectiveStatus, formatMoney, formatTotals, invoiceTotal, nextInvoiceNumber } from "./invoice-utils";
 import { InvoiceView } from "./invoice-view";
 import { InvoiceStatusBadge, STATUS_LABELS } from "./status-badge";
+import { MobileNavButton } from "@/components/shell/mobile-nav";
 
 type StatusFilter = "all" | InvoiceStatus;
 const STATUSES: InvoiceStatus[] = ["draft", "sent", "paid", "overdue"];
@@ -70,8 +71,9 @@ export function InvoicePage() {
       {/* Phones: title + New on the first row, search + Filters on the second; the header scrolls away */}
       <header className="z-10 flex shrink-0 flex-col gap-3 border-b border-hairline bg-surface px-4 py-3 md:sticky md:top-0 md:h-[68px] md:flex-row md:items-center md:py-0">
         <div className="flex min-w-0 items-center gap-3 md:flex-1">
+          <MobileNavButton />
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <h2 className="t-16 text-fg">Invoices</h2>
+            <h1 className="t-16 text-fg">Invoices</h1>
             <p className="t-14 max-w-[62ch] truncate text-fg-2" style={{ maxWidth: "35em" }}>
               {invoices.length} {invoices.length === 1 ? "invoice" : "invoices"} · {formatTotals(stats.outstanding)} outstanding
             </p>

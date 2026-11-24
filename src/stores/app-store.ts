@@ -4,15 +4,16 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { formatShort, monthName, rangeKeys, toKey } from "@/lib/dates";
-import { countedDays, durationLabel, LEAVE_COLORS, WORKDAY_MINUTES } from "@/lib/leave";
+import { countedDays, durationLabel, LEAVE_COLORS, overlappingRequest, WORKDAY_MINUTES } from "@/lib/leave";
 import { createSeed, STATE_VERSION } from "@/lib/seed";
-import type { Payslip } from "@/lib/payroll";
-import { initialsOf, ME } from "@/lib/team";
+import { advanceSchedule, canReopenMonth, canValidateMonth, lastRepaymentMonth, repaidBefore, type Payslip } from "@/lib/payroll";
+import { freezeRuns, initialsOf, ME } from "@/lib/team";
 import type {
   Asset,
   AppNotification,
   AppState,
   Benefit,
+  Advance,
   CalEvent,
   Departure,
   DocumentFile,
@@ -21,6 +22,7 @@ import type {
   LeaveRequest,
   LeaveStatus,
   LeaveType,
+  PayrollInput,
   Profile,
   Settings,
   TimeEntry,
@@ -52,12 +54,18 @@ type Actions = {
   duplicateEvent: (id: string) => void;
   // leave
   measureRequest: (input: RequestInput) => { days: number; label: string };
-  submitRequest: (input: RequestInput, existingId?: string) => LeaveRequest;
+  /** Returns null, changing nothing, when the dates clash with another pending or approved request. */
+  submitRequest: (input: RequestInput, existingId?: string) => LeaveRequest | null;
   setRequestStatus: (id: string, status: LeaveStatus) => void;
   deleteRequest: (id: string) => void;
   // payroll
   /** Lock a month's figures for payment. */
   validatePayroll: (month: string, lines: Record<string, Payslip>) => void;
+  /** HR: a month's bonus, overtime and absence for one employee; null clears them. */
+  setPayrollInput: (month: string, employeeId: string, input: PayrollInput | null) => void;
+  /** HR: lend money against future salary, repaid in instalments from `firstMonth`. */
+  addAdvance: (a: Omit<Advance, "id">) => void;
+  removeAdvance: (id: string) => void;
   /** Back to draft, before it's paid. */
   reopenPayroll: (month: string) => void;
   /** Record salaries as paid; the signed-in employee gets their payslip in Documents. */
@@ -152,6 +160,30 @@ function eventsForRequest(req: LeaveRequest): CalEvent[] {
 // localStorage throws when the ~5MB quota is full (e.g. large uploaded
 // documents). Keep the app working in memory and say so once.
 let warnedQuota = false;
+/** Brings saved data from before v8 up to v7's shape; v8's additions are filled in by the caller. */
+function migrateBefore8(s: AppState, version: number): AppState {
+  // v4: rebrand to Nuru for Burkina Faso — new leave types, holidays, FCFA amounts and
+  // Labour Code allowance. The old demo data doesn't map onto any of that, so start fresh.
+  if (version < 4) return createSeed();
+  // v5: the admin view's team and their requests; keep everything else.
+  if (version < 5) {
+    const seed = createSeed();
+    return { ...s, team: seed.team, teamRequests: seed.teamRequests, assets: seed.assets, version: STATE_VERSION };
+  }
+  // v6: company equipment; keep everything else.
+  // v6 and v7 also bring the executive flag (it changes the IUTS deduction) onto saved teams.
+  if (version < 6) {
+    const seed = createSeed();
+    return { ...s, team: withExecutive(s.team, seed.team), assets: seed.assets, payrollRuns: seed.payrollRuns, version: STATE_VERSION };
+  }
+  // v7: payroll runs; keep everything else.
+  if (version < 7) {
+    const seed = createSeed();
+    return { ...s, team: withExecutive(s.team, seed.team), payrollRuns: seed.payrollRuns, version: STATE_VERSION };
+  }
+  return { ...s, version: STATE_VERSION };
+}
+
 /** Copies the seed's executive flag onto saved employees that predate it. */
 const withExecutive = (team: AppState["team"], seedTeam: AppState["team"]) =>
   team.map((e) => (e.executive === undefined && seedTeam.find((x) => x.id === e.id)?.executive ? { ...e, executive: true } : e));
@@ -199,6 +231,8 @@ const TRACKED = [
   "teamRequests",
   "assets",
   "payrollRuns",
+  "payrollInputs",
+  "advances",
 ] as const satisfies readonly (keyof AppState)[];
 type TrackedKey = (typeof TRACKED)[number];
 type Snapshot = Pick<AppState, TrackedKey>;
@@ -225,6 +259,8 @@ const KEY_LABELS: Record<TrackedKey, string> = {
   teamRequests: "Leave request",
   assets: "Equipment",
   payrollRuns: "Payroll",
+  payrollInputs: "Payroll",
+  advances: "Salary advances",
 };
 
 function snapshotOf(state: AppState): Snapshot {
@@ -323,6 +359,10 @@ export const useAppStore = create<AppStore>()(
         return { days: n, label: durationLabel(n, 0) };
       },
       submitRequest: (input, existingId) => {
+        if (overlappingRequest(get().requests, input, existingId)) {
+          toast.error("You already have leave on these dates");
+          return null;
+        }
         const m = get().measureRequest(input);
         const req: LeaveRequest = {
           id: existingId ?? uid("rq"),
@@ -413,17 +453,52 @@ export const useAppStore = create<AppStore>()(
         else toast.error("Request declined", { description, action: undoReview });
       },
       validatePayroll: (month, lines) => {
+        // Months close in order (see nextMonthToValidate)
+        if (!canValidateMonth(get().payrollRuns, month)) return;
         set((s) => ({
           payrollRuns: { ...s.payrollRuns, [month]: { month, status: "validated", validatedAt: new Date().toISOString(), lines } },
         }));
         toast.success("Payroll validated", { description: `${monthName(month + "-01")} ${month.slice(0, 4)} is ready to pay` });
       },
-      reopenPayroll: (month) =>
+      setPayrollInput: (month, employeeId, input) => {
+        const empty = !input || (!input.bonus && !input.overtime15 && !input.overtime35 && !input.absenceDays && !input.note?.trim());
+        set((s) => {
+          const forMonth = { ...(s.payrollInputs[month] ?? {}) };
+          if (empty) delete forMonth[employeeId];
+          else forMonth[employeeId] = input;
+          return { payrollInputs: { ...s.payrollInputs, [month]: forMonth } };
+        });
+      },
+      addAdvance: (a) => {
+        const s = get();
+        const last = lastRepaymentMonth(s.payrollRuns, a.employeeId);
+        if (s.payrollRuns[a.firstMonth] || (last && a.firstMonth <= last)) return;
+        set((s) => ({ advances: [...s.advances, { ...a, id: uid("adv") }] }));
+        const name = get().team.find((e) => e.id === a.employeeId)?.name ?? "";
+        toast.success("Advance recorded", { description: `${name} · repaid from ${monthName(a.firstMonth + "-01")} ${a.firstMonth.slice(0, 4)}` });
+      },
+      removeAdvance: (id) => {
+        const s = get();
+        const target = s.advances.find((a) => a.id === id);
+        if (!target) return;
+        // Once a repayment has been withheld for it, the advance is part of closed payslips
+        const mine = s.advances.filter((a) => a.employeeId === target.employeeId);
+        const { rows } = advanceSchedule(mine, repaidBefore(s.payrollRuns, target.employeeId, "9999-12"), "9999-12");
+        if (rows.find((r) => r.advance.id === id)?.paid) {
+          toast.error("This advance is already being repaid", { description: "It can't be removed once payroll has withheld a repayment." });
+          return;
+        }
+        set((s) => ({ advances: s.advances.filter((a) => a.id !== id) }));
+        toast("Advance removed");
+      },
+      reopenPayroll: (month) => {
+        if (!canReopenMonth(get().payrollRuns, month)) return;
         set((s) => {
           const runs = { ...s.payrollRuns };
           delete runs[month];
           return { payrollRuns: runs };
-        }),
+        });
+      },
       markPayrollPaid: (month) => {
         const run = get().payrollRuns[month];
         if (!run) return;
@@ -658,28 +733,16 @@ export const useAppStore = create<AppStore>()(
       storage: createJSONStorage(() => safeLocalStorage),
       // Hydrate after mount so the server-rendered markup (the seed) matches.
       skipHydration: true,
+      // Every older version gets the v8 payroll additions (no monthly inputs, no advances) and
+      // v9's frozen payslips for closed months that were saved without any.
       migrate: (persisted, version) => {
-        const s = persisted as AppState;
-        // v4: rebrand to Nuru for Burkina Faso — new leave types, holidays, FCFA amounts and
-        // Labour Code allowance. The old demo data doesn't map onto any of that, so start fresh.
-        if (version < 4) return createSeed();
-        // v5: the admin view's team and their requests; keep everything else.
-        if (version < 5) {
-          const seed = createSeed();
-          return { ...s, team: seed.team, teamRequests: seed.teamRequests, assets: seed.assets, version: STATE_VERSION };
-        }
-        // v6: company equipment; keep everything else.
-        // v6 and v7 also bring the executive flag (it changes the IUTS deduction) onto saved teams.
-        if (version < 6) {
-          const seed = createSeed();
-          return { ...s, team: withExecutive(s.team, seed.team), assets: seed.assets, payrollRuns: seed.payrollRuns, version: STATE_VERSION };
-        }
-        // v7: payroll runs; keep everything else.
-        if (version < 7) {
-          const seed = createSeed();
-          return { ...s, team: withExecutive(s.team, seed.team), payrollRuns: seed.payrollRuns, version: STATE_VERSION };
-        }
-        return { ...s, version: STATE_VERSION };
+        const next: Partial<AppState> = migrateBefore8(persisted as AppState, version);
+        return {
+          ...next,
+          payrollInputs: next.payrollInputs ?? {},
+          advances: next.advances ?? [],
+          payrollRuns: freezeRuns(next.payrollRuns ?? {}, next.team ?? []),
+        } as AppState;
       },
       partialize: (s) => {
         const data: Partial<AppStore> = {};

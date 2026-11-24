@@ -183,6 +183,36 @@ export type Employee = {
   executive?: boolean;
   /** Set once HR records that the person is leaving; they stay on file as a former employee */
   departure?: Departure;
+  /** Allowances paid every month on top of the base salary, in FCFA */
+  allowances?: Partial<Record<AllowanceKind, number>>;
+};
+
+export type AllowanceKind = "housing" | "transport" | "function" | "other";
+
+/** What changes from one month to the next for one employee: entered by HR before validating. */
+export type PayrollInput = {
+  bonus?: number;
+  /** Overtime hours paid at the first premium (+15%) */
+  overtime15?: number;
+  /** Overtime hours paid at the higher premium (+35%) */
+  overtime35?: number;
+  /** Days of unpaid absence */
+  absenceDays?: number;
+  note?: string;
+};
+
+/** Money lent against future salary, withheld in equal monthly instalments. */
+export type Advance = {
+  id: string;
+  employeeId: string;
+  amount: number;
+  /** Day it was handed over, YYYY-MM-DD */
+  date: string;
+  /** Withheld from each payslip until repaid */
+  installment: number;
+  /** First month repaid, YYYY-MM */
+  firstMonth: string;
+  note?: string;
 };
 
 export type DepartureReason = "Resignation" | "End of contract" | "Dismissal" | "Mutual agreement" | "Retirement" | "Other";
@@ -251,4 +281,7 @@ export type AppState = {
   assets: Asset[];
   /** Keyed by month, "YYYY-MM" */
   payrollRuns: Record<string, PayrollRun>;
+  /** Bonus, overtime and absence by month ("YYYY-MM"), then employee id */
+  payrollInputs: Record<string, Record<string, PayrollInput>>;
+  advances: Advance[];
 };

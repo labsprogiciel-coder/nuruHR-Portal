@@ -63,8 +63,10 @@ Open http://localhost:3000. To return to the exact design state, use
 - **Admin (HR)** — HR overview (headcount, approvals waiting, who's off, monthly
   payroll in FCFA, contract and trial-period ends), an approvals inbox across the
   team with each request's effect on the balance under the Labour Code, an
-  employee directory with filters, and an employee file (contract, CNSS number,
-  salary, seniority, leave balance and history). The signed-in employee is part
+  employee directory with filters, and an employee file in tabs: Info (job and
+  contract), Contact, Pay (salary, allowances, net estimate, salary advances),
+  Equipment, Benefits, Documents (payslips, work certificate) and Leave (balance
+  and history). The signed-in employee is part
   of the team, so approving their own request here updates their Time off page.
 - **Employee management** — add an employee (identity, job, contract type and
   end date, trial period, salary with a live net-pay estimate, dependents,
@@ -74,13 +76,20 @@ Open http://localhost:3000. To return to the exact design state, use
   equipment to take back) and a printable French work certificate (certificat de
   travail). People who left move to a Former tab and drop out of payroll after
   their last month; upcoming departures show on the HR overview.
-- **Payroll (Burkina Faso)** — a monthly run for the whole team: gross, employee
-  CNSS (5.5%, capped at 800 000 FCFA), IUTS after the flat deduction and family
-  reduction, net pay, employer CNSS (16%) and cost, with a payslip breakdown per
-  person and a CSV export for declarations. Runs go draft → validated (figures
-  frozen) → paid, and paying drops the signed-in employee's payslip into
-  Documents. Rates live in `src/lib/payroll.ts`; the IUTS scale still needs
-  checking against the current Code général des impôts.
+- **Payroll (Burkina Faso)** — a monthly run for the whole team: base salary,
+  recurring allowances (housing, transport, function, other) set on each employee,
+  and the month's bonus, overtime (+15% / +35% hours) and unpaid absence entered
+  per person while the month is a draft. Then employee CNSS (5.5% of the whole
+  gross, capped at 800 000 FCFA), IUTS (after the exempt part of allowances, the
+  flat deduction on base salary and the family reduction), net salary, salary
+  advance repayments and the net to pay, plus employer CNSS (16%) and cost. Each
+  payslip prints as a French bulletin de paie, and the month exports as a payroll
+  summary and CNSS and IUTS declaration files (CSV, in French). Runs go draft →
+  validated (figures frozen) → paid, and paying drops the signed-in employee's
+  payslip into Documents. Salary advances are given from the employee file and
+  withheld in monthly instalments, oldest first. Rates live in
+  `src/lib/payroll.ts`; the IUTS scale, allowance exemptions and overtime premiums
+  still need checking with an accountant.
 - **Equipment** — employees see the company property registered to them
   (laptop, phone, tablet, vehicle, motorbike) on their dashboard and can report
   a problem with it. Admins get an equipment list (in use, in stock, in repair,
@@ -96,7 +105,7 @@ src/
   app/                 routes (one folder per sidebar page)
   components/
     ui/                shadcn/ui primitives, themed
-    shell/             title bar, sidebar, search, notifications, shortcuts
+    shell/             sidebar (with search, notifications, help), mobile nav, shortcuts
     calendar/          header, time grid, all-day row, month view, popover
     time-off/          stats panel, requests table, status badge
     dialogs/           app-wide dialogs (request, event, details, holidays…)
