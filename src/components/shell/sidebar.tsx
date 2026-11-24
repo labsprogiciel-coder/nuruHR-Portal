@@ -28,7 +28,7 @@ import { Brand } from "./workspace-switcher";
 
 const noopSubscribe = () => () => {};
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+function NavLink({ item, active, count }: { item: NavItem; active: boolean; count?: number }) {
   return (
     <Link
       href={item.href}
@@ -41,6 +41,12 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
     >
       <Icon name={item.icon} className={active && item.icon === "nav-calendar" ? "text-brand" : undefined} />
       <span className="t-14 salt min-w-0 flex-1 truncate">{item.label}</span>
+      {count ? (
+        <span className="t-12 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-tint px-1.5 font-medium text-brand tabular-nums">
+          {count}
+          <span className="sr-only"> waiting</span>
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -122,6 +128,8 @@ export function SidebarBody({ className }: { className?: string }) {
   const pathname = usePathname();
   const activeHref = activePage(pathname)?.href;
   const isActive = (href: string) => href === activeHref;
+  // Leave requests waiting for a decision, shown on Approvals
+  const waiting = useAppStore((s) => s.requests.filter((r) => r.status === "pending").length + s.teamRequests.filter((r) => r.status === "pending").length);
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col justify-between gap-6 overflow-y-auto p-3 [scrollbar-width:none]", className)}>
@@ -130,7 +138,7 @@ export function SidebarBody({ className }: { className?: string }) {
           <div key={group.label} className="flex w-full flex-col gap-0.5">
             <SectionLabel>{group.label}</SectionLabel>
             {group.items.map((item) => (
-              <NavLink key={item.href} item={item} active={isActive(item.href)} />
+              <NavLink key={item.href} item={item} active={isActive(item.href)} count={item.href === "/admin/approvals" ? waiting : undefined} />
             ))}
           </div>
         ))}

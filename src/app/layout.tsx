@@ -14,7 +14,7 @@ const DESCRIPTION =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: "Time off · Nuru", template: "%s · Nuru" },
+  title: { default: "HR overview · Nuru", template: "%s · Nuru" },
   description: DESCRIPTION,
   applicationName: "Nuru",
   keywords: ["HR", "time off", "leave management", "congés", "Burkina Faso", "West Africa", "FCFA", "people ops", "Nuru"],
