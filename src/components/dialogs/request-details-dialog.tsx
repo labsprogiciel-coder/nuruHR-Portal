@@ -44,6 +44,9 @@ export function RequestDetailsDialog({ open, onClose, requestId }: { open: boole
     ...(!request.allDay && request.start !== undefined && request.end !== undefined
       ? ([["Hours", formatTimeRange(request.start, request.end, timeFormat)]] as [string, React.ReactNode][])
       : []),
+    ...(request.status === "declined" && request.declineReason
+      ? ([["Reason given", request.declineReason]] as [string, React.ReactNode][])
+      : []),
     ["Submitted", now ? relativeTime(request.submittedAt, now) : formatLong(request.submittedAt.slice(0, 10))],
   ];
 

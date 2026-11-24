@@ -150,7 +150,7 @@ function StatRow() {
         label="Pending requests"
         value={pending.length}
         hint={pending.length ? `${plural(pendingDays, "day", "days")} awaiting approval` : "Nothing waiting on approval"}
-        href="/time-off"
+        href="/time-off/requests"
       />
       <StatTile
         icon="per-year"

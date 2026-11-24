@@ -56,7 +56,8 @@ type Actions = {
   measureRequest: (input: RequestInput) => { days: number; label: string };
   /** Returns null, changing nothing, when the dates clash with another pending or approved request. */
   submitRequest: (input: RequestInput, existingId?: string) => LeaveRequest | null;
-  setRequestStatus: (id: string, status: LeaveStatus) => void;
+  /** `reason` is kept with a declined request and shown to the employee. */
+  setRequestStatus: (id: string, status: LeaveStatus, reason?: string) => void;
   deleteRequest: (id: string) => void;
   // payroll
   /** Lock a month's figures for payment. */
@@ -86,7 +87,7 @@ type Actions = {
   recordDeparture: (id: string, departure: Omit<Departure, "recordedAt">, returnAssets: boolean) => void;
   cancelDeparture: (id: string) => void;
   /** Admin: approve or decline anyone's request (the user's own go through setRequestStatus). */
-  reviewRequest: (id: string, status: "approved" | "declined") => void;
+  reviewRequest: (id: string, status: "approved" | "declined", reason?: string) => void;
   addHoliday: (date: string, name: string) => void;
   removeHoliday: (id: string) => void;
   // notifications
@@ -389,18 +390,19 @@ export const useAppStore = create<AppStore>()(
         get().notify({
           title: `${req.type} request submitted`,
           body: `${when} · ${req.duration}. Your manager has been notified.`,
-          href: "/time-off",
+          href: "/time-off/requests",
         });
         return req;
       },
-      setRequestStatus: (id, status) => {
+      setRequestStatus: (id, status, reason) => {
         const req = get().requests.find((r) => r.id === id);
         if (!req) return;
+        const declineReason = status === "declined" ? reason?.trim() || undefined : undefined;
         set((s) => {
           const keep = status === "approved" || status === "pending";
           const note = status === "approved" ? "Approved" : "Pending";
           return {
-            requests: s.requests.map((r) => (r.id === id ? { ...r, status } : r)),
+            requests: s.requests.map((r) => (r.id === id ? { ...r, status, declineReason } : r)),
             events: keep
               ? s.events.map((e) => (e.requestId === id && !e.allDay ? { ...e, note } : e))
               : s.events.filter((e) => e.requestId !== id),
@@ -415,8 +417,8 @@ export const useAppStore = create<AppStore>()(
         if (status === "approved" || status === "declined") {
           get().notify({
             title: `${req.type} ${verb}`,
-            body: `Your request for ${whenLabel(req.from, req.to)} was ${verb}.`,
-            href: "/time-off",
+            body: `Your request for ${whenLabel(req.from, req.to)} was ${verb}.${declineReason ? ` Reason: ${declineReason}` : ""}`,
+            href: "/time-off/requests",
           });
         }
       },
@@ -438,11 +440,12 @@ export const useAppStore = create<AppStore>()(
           },
         });
       },
-      reviewRequest: (id, status) => {
-        if (get().requests.some((r) => r.id === id)) return get().setRequestStatus(id, status);
+      reviewRequest: (id, status, reason) => {
+        if (get().requests.some((r) => r.id === id)) return get().setRequestStatus(id, status, reason);
         const req = get().teamRequests.find((r) => r.id === id);
         if (!req) return;
-        set((s) => ({ teamRequests: s.teamRequests.map((r) => (r.id === id ? { ...r, status } : r)) }));
+        const declineReason = status === "declined" ? reason?.trim() || undefined : undefined;
+        set((s) => ({ teamRequests: s.teamRequests.map((r) => (r.id === id ? { ...r, status, declineReason } : r)) }));
         const name = get().team.find((e) => e.id === req.employeeId)?.name ?? "Request";
         const description = `${name} · ${req.type} · ${whenLabel(req.from, req.to)}`;
         const undoReview = {

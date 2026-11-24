@@ -17,6 +17,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/personal-details", label: "Personal details", icon: "nav-personal" },
       { href: "/documents", label: "Documents", icon: "nav-documents" },
       { href: "/time-off", label: "Time off", icon: "nav-calendar" },
+      { href: "/time-off/requests", label: "Leave requests", icon: "request-time-off" },
       { href: "/time-tracking", label: "Time tracking", icon: "nav-time-tracking" },
       { href: "/benefits", label: "Benefits", icon: "nav-benefits" },
     ],

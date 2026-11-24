@@ -32,12 +32,9 @@ import { useToday } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
 import { useCalendarStore } from "@/stores/calendar-store";
 import { openOverlay } from "@/stores/overlay-store";
+import { ALL_STATUSES, DEFAULT_FILTERS, type RequestFilters } from "@/stores/request-filters-store";
 import { StatusBadge } from "./status-badge";
 
-export const ALL_STATUSES: LeaveStatus[] = ["approved", "pending", "declined", "cancelled"];
-
-export type RequestFilters = { statuses: LeaveStatus[]; types: LeaveType[] };
-export const DEFAULT_FILTERS: RequestFilters = { statuses: ALL_STATUSES, types: LEAVE_TYPES };
 
 type SortKey = "status" | "type" | "days" | "from" | "to";
 type Sort = { key: SortKey; dir: 1 | -1 } | null;
@@ -83,11 +80,9 @@ function compare(a: LeaveRequest, b: LeaveRequest, key: SortKey) {
 export function RequestsTable({
   filters,
   onFiltersChange,
-  ref,
 }: {
   filters: RequestFilters;
   onFiltersChange: (f: RequestFilters) => void;
-  ref?: React.Ref<HTMLElement>;
 }) {
   const requests = useAppStore((s) => s.requests);
   const [query, setQuery] = useState("");
@@ -152,13 +147,11 @@ export function RequestsTable({
     setSort((s) => (!s || s.key !== key ? { key, dir: 1 } : s.dir === 1 ? { key, dir: -1 } : null));
 
   return (
-    <section
-      ref={ref}
-      aria-label="Leave and requests"
-      className="flex w-full shrink-0 scroll-mt-0 flex-col overflow-hidden border-t border-hairline bg-surface pb-[env(safe-area-inset-bottom)]"
-    >
+    <section aria-label="Leave requests" className="flex w-full shrink-0 flex-col overflow-hidden bg-surface">
       <div className="flex w-full shrink-0 flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap overflow-hidden px-4 py-3 md:h-14">
-        <h2 className="t-16 salt shrink-0 text-heading">Leave and requests</h2>
+        <p className="t-14 shrink-0 text-fg-2 tabular-nums max-sm:hidden">
+          {rows.length === requests.length ? `${requests.length} in total` : `${rows.length} of ${requests.length} shown`}
+        </p>
         <div className="flex items-center gap-2 max-sm:w-full" data-toolbar>
           <label className="flex h-8 w-60 items-center gap-2 max-sm:w-auto max-sm:flex-1 rounded-lg border border-control bg-surface px-2.5 transition-[border-color,box-shadow] duration-150 focus-within:border-brand/60 focus-within:ring-3 focus-within:ring-brand/15">
             <Icon name="search" />

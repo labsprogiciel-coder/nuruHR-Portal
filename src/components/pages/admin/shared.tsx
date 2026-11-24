@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
+import { Field } from "@/components/dialogs/field";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { formatLong, formatShort } from "@/lib/dates";
 import { DEDUCTED, FAMILY_EVENT_DAYS } from "@/lib/labour-code";
 import { formatDays, LEAVE_COLORS, type LeaveStats } from "@/lib/leave";
@@ -105,6 +108,7 @@ export function ApprovalRow({
 }) {
   const review = useAppStore((s) => s.reviewRequest);
   const note = r.status === "pending" ? balanceNote(r, stats) : null;
+  const [declining, setDeclining] = useState(false);
 
   return (
     <li className="flex items-start gap-3 px-4 py-3 max-md:flex-wrap">
@@ -126,10 +130,11 @@ export function ApprovalRow({
         </p>
         {r.notes ? <p className="t-12 line-clamp-2 leading-[1.4] text-fg-2">{r.notes}</p> : null}
         {note ? <p className="t-12 text-fg-2">{note}</p> : null}
+        {r.status === "declined" && r.declineReason ? <p className="t-12 leading-[1.4] text-fg-2">Declined: {r.declineReason}</p> : null}
       </div>
       {r.status === "pending" ? (
         <div className="flex shrink-0 items-center gap-2 max-md:w-full max-md:[&>*]:h-10 max-md:[&>*]:flex-1">
-          <Button size="sm" onClick={() => review(r.id, "declined")} aria-label={`Decline ${employee?.name ?? ""} ${r.type}`}>
+          <Button size="sm" onClick={() => setDeclining(true)} aria-label={`Decline ${employee?.name ?? ""} ${r.type}`}>
             <XIcon /> Decline
           </Button>
           <Button size="sm" variant="brand" onClick={() => review(r.id, "approved")} aria-label={`Approve ${employee?.name ?? ""} ${r.type}`}>
@@ -139,7 +144,73 @@ export function ApprovalRow({
       ) : (
         <StatusBadge status={r.status} />
       )}
+      <DeclineDialog
+        open={declining}
+        who={employee?.name}
+        what={`${r.type} · ${dateRange(r)} · ${r.duration}`}
+        onClose={() => setDeclining(false)}
+        onDecline={(reason) => review(r.id, "declined", reason)}
+      />
     </li>
+  );
+}
+
+/** Declining asks for a reason, so the employee is told why and not only that it was refused. */
+function DeclineDialog({
+  open,
+  who,
+  what,
+  onClose,
+  onDecline,
+}: {
+  open: boolean;
+  who: string | undefined;
+  what: string;
+  onClose: () => void;
+  onDecline: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setReason("");
+  }
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="gap-5 p-5 sm:max-w-[440px]">
+        <form
+          className="contents"
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            onDecline(reason);
+            onClose();
+          }}
+        >
+          <DialogHeader className="gap-1.5">
+            <DialogTitle className="t-16">Decline {who ? `${who}’s` : "this"} request?</DialogTitle>
+            <DialogDescription className="t-14">{what}</DialogDescription>
+          </DialogHeader>
+          <Field label="Reason" htmlFor="decline-reason" hint="Optional · the employee sees it with the decision">
+            <Textarea
+              id="decline-reason"
+              rows={3}
+              autoFocus
+              placeholder="e.g. Two people from the team are already away that week"
+              value={reason}
+              onChange={(ev) => setReason(ev.target.value)}
+            />
+          </Field>
+          <DialogFooter className="-mx-5 -mb-5 bg-app px-5 py-3">
+            <Button type="button" onClick={onClose}>
+              Keep pending
+            </Button>
+            <Button type="submit" variant="destructive">
+              Decline request
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

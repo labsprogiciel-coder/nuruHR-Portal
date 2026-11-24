@@ -98,4 +98,18 @@ describe("guards", () => {
     state().removeAdvance(adv.id);
     expect(state().advances.some((a) => a.id === adv.id)).toBe(false);
   });
+
+  it("keeps the reason with a declined request and drops it when the decision changes", () => {
+    const pending = state().teamRequests.find((r) => r.status === "pending")!;
+    state().reviewRequest(pending.id, "declined", "  Two people are already away  ");
+    const declined = state().teamRequests.find((r) => r.id === pending.id)!;
+    expect(declined.status).toBe("declined");
+    expect(declined.declineReason).toBe("Two people are already away");
+    state().reviewRequest(pending.id, "approved");
+    expect(state().teamRequests.find((r) => r.id === pending.id)!.declineReason).toBeUndefined();
+    // The signed-in user's own request: the reason reaches their notification
+    state().reviewRequest("rq-6", "declined", "Project deadline");
+    expect(state().requests.find((r) => r.id === "rq-6")!.declineReason).toBe("Project deadline");
+    expect(state().notifications[0].body).toContain("Reason: Project deadline");
+  });
 });

@@ -14,6 +14,16 @@ import {
   RotateCcwIcon,
 } from "lucide-react";
 import { Field } from "@/components/dialogs/field";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -76,6 +86,8 @@ export function PayrollPage() {
   const [month, setMonth] = useState<string | null>(null);
   const [open, setOpen] = useState<Employee | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
+  // Validating freezes the payslips and paying can't be reopened, so both ask first
+  const [confirming, setConfirming] = useState<"validate" | "pay" | null>(null);
 
   const current = month ?? today.slice(0, 7);
   const run: PayrollRun | undefined = runs[current];
@@ -167,7 +179,7 @@ export function PayrollPage() {
               </DropdownMenuContent>
             </DropdownMenu>
             {status === "draft" ? (
-              <Button variant="brand" disabled={!canValidate} onClick={() => validate(current, lines)}>
+              <Button variant="brand" disabled={!canValidate} onClick={() => setConfirming("validate")}>
                 <CheckIcon /> Validate
               </Button>
             ) : status === "validated" ? (
@@ -177,7 +189,7 @@ export function PayrollPage() {
                     <RotateCcwIcon /> Reopen
                   </Button>
                 ) : null}
-                <Button variant="brand" onClick={() => markPaid(current)}>
+                <Button variant="brand" onClick={() => setConfirming("pay")}>
                   <BanknoteIcon /> Mark as paid
                 </Button>
               </>
@@ -277,6 +289,31 @@ export function PayrollPage() {
         onClose={() => setOpen(null)}
       />
       <RulesDialog open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      <AlertDialog open={!!confirming} onOpenChange={(v) => !v && setConfirming(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="t-16">
+              {confirming === "pay" ? `Mark ${monthLabel(current)} as paid?` : `Validate ${monthLabel(current)} payroll?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="t-14 leading-[1.4]">
+              {formatMoney(totals.toPay)} to {plural(staff.length, "employee", "employees")}
+              {totals.advance ? `, after ${formatMoney(totals.advance)} of advances withheld` : ""}.{" "}
+              {confirming === "pay"
+                ? "This records the salaries as paid and adds your own payslip to Documents. A paid month can't be reopened."
+                : "The payslips are frozen as they are now. You can reopen the month until it's marked as paid."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="brand"
+              onClick={() => (confirming === "pay" ? markPaid(current) : validate(current, lines))}
+            >
+              {confirming === "pay" ? "Mark as paid" : "Validate payroll"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageRoot>
   );
 }
