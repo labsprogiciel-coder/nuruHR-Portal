@@ -45,12 +45,23 @@ import {
   type Payslip,
 } from "@/lib/payroll";
 import { cnssDeclarationRows, downloadCsv, iutsDeclarationRows, printPayslip } from "@/lib/payroll-documents";
-import { batchFileName, batchFileRows, isBatch, missingPayout, PAYOUT_METHODS, payoutBatches, type PayoutBatch } from "@/lib/payouts";
+import {
+  batchFileName,
+  batchFileRows,
+  isBatch,
+  missingPayout,
+  PAYOUT_METHODS,
+  payoutAccount,
+  payoutBatches,
+  payoutError,
+  type PayoutBatch,
+} from "@/lib/payouts";
 import { employedIn, monthShare } from "@/lib/team";
 import type { Employee, PayrollInput, PayrollRun } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { selectWorkspaceName, useAppStore } from "@/stores/app-store";
 import { Card, PageHeader, PageRoot, StatGrid, StatTile } from "@/components/pages/shared/page-chrome";
-import { EmployeeAvatar, FieldList, useTeam } from "./shared";
+import { EmployeeAvatar, useTeam } from "./shared";
 
 const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
 const monthLabel = (month: string) => `${monthName(month + "-01")} ${month.slice(0, 4)}`;
@@ -245,6 +256,7 @@ export function PayrollPage() {
         <Card className="overflow-hidden">
           <div role="row" className="flex h-10 items-center gap-3 border-b border-hairline bg-app px-4 max-md:hidden">
             <span className="t-14 min-w-0 flex-1 text-fg-2">Employee</span>
+            <span className="t-14 w-32 shrink-0 text-fg-2 max-lg:hidden">Paid by</span>
             {["Gross", "CNSS 5.5%", "IUTS", "Advance", "To pay"].map((h) => (
               <span key={h} className="t-14 w-32 shrink-0 text-right text-fg-2">
                 {h}
@@ -255,6 +267,7 @@ export function PayrollPage() {
             {staff.map((e) => {
               const s = lines[e.id];
               const extra = run ? "" : inputSummary(inputs[e.id]);
+              const paidBy = payoutLabel(e);
               return (
                 <li key={e.id}>
                   <button
@@ -268,8 +281,12 @@ export function PayrollPage() {
                       <span className="t-12 truncate text-fg-2">
                         <span className="md:hidden">Gross {formatMoney(s.gross)} · </span>
                         {e.jobTitle}
+                        <span className={cn("lg:hidden", paidBy.missing && "text-warning")}> · {paidBy.label}</span>
                         {extra ? <span className="text-brand"> · {extra}</span> : null}
                       </span>
+                    </span>
+                    <span className={cn("t-14 w-32 shrink-0 truncate max-lg:hidden", paidBy.missing ? "text-warning" : "text-table")} title={paidBy.title}>
+                      {paidBy.label}
                     </span>
                     <Money value={s.gross} className="max-md:hidden" />
                     <Money value={-s.cnssEmployee} className="max-md:hidden" />
@@ -283,6 +300,7 @@ export function PayrollPage() {
           </ul>
           <div className="flex min-h-12 items-center gap-3 border-t border-hairline bg-app px-4 py-2">
             <span className="t-14 min-w-0 flex-1 text-fg">Total</span>
+            <span className="w-32 shrink-0 max-lg:hidden" aria-hidden />
             <Money value={totals.gross} className="max-md:hidden" />
             <Money value={-totals.cnssEmployee} className="max-md:hidden" />
             <Money value={-totals.iuts} className="max-md:hidden" />
@@ -464,6 +482,14 @@ function StatusPill({ status }: { status: keyof typeof STATUS }) {
   );
 }
 
+/** How someone is paid, for the table: the method, or a flag when nothing usable is on file. */
+function payoutLabel(e: Employee): { label: string; title?: string; missing: boolean } {
+  if (!e.payout) return { label: "Not set", title: "No payment details on file: paid by hand", missing: true };
+  const { method, account } = e.payout;
+  if (payoutError(method, account)) return { label: `${PAYOUT_METHODS[method].label} · check`, title: "The number or account on file isn't valid", missing: true };
+  return { label: PAYOUT_METHODS[method].label, title: isBatch(method) ? payoutAccount(method, account) : undefined, missing: false };
+}
+
 function Money({ value, strong, className }: { value: number; strong?: boolean; className?: string }) {
   return (
     <span className={`t-14 w-32 shrink-0 text-right tabular-nums max-md:w-auto ${strong ? "text-fg" : "text-table"} ${className ?? ""}`}>
@@ -535,10 +561,11 @@ function PayslipDialog({
 
   return (
     <Dialog open={!!e} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-4 overflow-y-auto p-5 sm:max-w-[560px]">
+      {/* Header and footer stay put; only the payslip between them scrolls */}
+      <DialogContent className="max-h-[min(820px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-[560px]">
         {e && s ? (
           <>
-            <DialogHeader className="gap-1.5">
+            <DialogHeader className="gap-1.5 border-b border-hairline p-5 pb-4 pr-12">
               <DialogTitle className="t-16">
                 {e.name} · {monthLabel(month)}
               </DialogTitle>
@@ -547,6 +574,7 @@ function PayslipDialog({
               </DialogDescription>
             </DialogHeader>
 
+            <div className="scroll-thin flex flex-col gap-3 overflow-y-auto p-5 [&>*]:shrink-0">
             {editable ? (
               <fieldset className="grid gap-3 rounded-lg border border-hairline bg-app p-3.5">
                 <legend className="t-14 px-1 font-medium text-fg">This month</legend>
@@ -583,29 +611,45 @@ function PayslipDialog({
               <p className="t-14 text-fg-2">Note: {input.note}</p>
             ) : null}
 
-            <div className="overflow-hidden rounded-lg border border-hairline">
-              <FieldList
+            <SlipSection
+              rows={[
+                [s.share ? `Base salary (${pct(s.share)} of the month)` : "Base salary", formatMoney(s.base)],
+                ...ALLOWANCES.filter((a) => s.allowances[a.kind]).map((a): SlipRow => [`${a.label} allowance`, formatMoney(s.allowances[a.kind]!)]),
+                ...(s.overtime ? ([["Overtime", formatMoney(s.overtime)]] as SlipRow[]) : []),
+                ...(s.bonus ? ([["Bonus", formatMoney(s.bonus)]] as SlipRow[]) : []),
+                ...(s.absence ? ([["Unpaid absence", `− ${formatMoney(s.absence)}`]] as SlipRow[]) : []),
+                ["Gross salary", formatMoney(s.gross), "strong"],
+              ]}
+            />
+            <SlipSection
+              rows={[
+                [`CNSS (${pct(cnss.employee)})`, `− ${formatMoney(s.cnssEmployee)}`],
+                ["IUTS withheld", `− ${formatMoney(s.iuts)}`],
+                ["Net salary", formatMoney(s.net), s.advance ? undefined : "strong"],
+                ...(s.advance ? ([["Advance repayment", `− ${formatMoney(s.advance)}`], ["To pay", formatMoney(s.toPay), "strong"]] as SlipRow[]) : []),
+              ]}
+            />
+            {/* The working behind the tax and what the month costs the company, on demand */}
+            <details className="group rounded-lg border border-hairline">
+              <summary className="t-14 flex h-9 cursor-pointer list-none items-center justify-between gap-3 px-3 text-fg-2 outline-none hover-fine:text-fg focus-visible:text-fg [&::-webkit-details-marker]:hidden">
+                Tax working and employer cost
+                <ChevronDownIcon className="size-3.5 transition-transform duration-150 group-open:rotate-180" />
+              </summary>
+              <SlipSection
+                className="rounded-none border-0 border-t"
                 rows={[
-                  [s.share ? `Base salary (${pct(s.share)} of the month)` : "Base salary", formatMoney(s.base)],
-                  ...ALLOWANCES.filter((a) => s.allowances[a.kind]).map((a): [string, string] => [`${a.label} allowance`, formatMoney(s.allowances[a.kind]!)]),
-                  ...(s.overtime ? ([["Overtime", formatMoney(s.overtime)]] as [string, string][]) : []),
-                  ...(s.bonus ? ([["Bonus", formatMoney(s.bonus)]] as [string, string][]) : []),
-                  ...(s.absence ? ([["Unpaid absence", `− ${formatMoney(s.absence)}`]] as [string, string][]) : []),
-                  ["Gross salary", <strong key="gross">{formatMoney(s.gross)}</strong>],
-                  [`CNSS (${pct(cnss.employee)})`, `− ${formatMoney(s.cnssEmployee)}${s.gross > cnss.ceiling ? ` · on the ${formatMoney(cnss.ceiling)} ceiling` : ""}`],
-                  ...(s.exempt ? ([["Allowances not taxed", formatMoney(s.exempt)]] as [string, string][]) : []),
+                  ...(s.gross > cnss.ceiling ? ([["CNSS is worked out on", `${formatMoney(cnss.ceiling)} ceiling`]] as SlipRow[]) : []),
+                  ...(s.exempt ? ([["Allowances not taxed", formatMoney(s.exempt)]] as SlipRow[]) : []),
                   [`Flat deduction (${pct(e.executive ? iuts.abatement.executive : iuts.abatement.staff)} of base)`, formatMoney(s.abatement)],
                   ["Taxable income", formatMoney(s.taxable)],
-                  ["IUTS withheld", `− ${formatMoney(s.iuts)}${s.familyReduction ? ` · after ${formatMoney(s.familyReduction)} family reduction` : ""}`],
-                  ["Net salary", formatMoney(s.net)],
-                  ...(s.advance ? ([["Advance repayment", `− ${formatMoney(s.advance)}`]] as [string, string][]) : []),
-                  ["To pay", <strong key="pay">{formatMoney(s.toPay)}</strong>],
+                  ...(s.familyReduction ? ([["Family reduction on IUTS", `− ${formatMoney(s.familyReduction)}`]] as SlipRow[]) : []),
                   ["Employer CNSS (16%)", formatMoney(s.cnssEmployer)],
                   ["Cost to the company", formatMoney(s.employerCost)],
                 ]}
               />
+            </details>
             </div>
-            <DialogFooter className="-mx-5 -mb-5 flex-wrap gap-2 bg-app px-5 py-3">
+            <DialogFooter className="m-0 flex-wrap gap-2 border-t border-hairline bg-app px-5 py-3">
               <Button asChild className="mr-auto max-sm:mr-0">
                 <Link href={`/admin/employees/${e.id}`}>Employee file</Link>
               </Button>
@@ -632,6 +676,22 @@ function PayslipDialog({
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+type SlipRow = [label: string, value: string, emphasis?: "strong"];
+
+/** A compact block of payslip lines: 32px rows, the label on the left and the amount on the right. */
+function SlipSection({ rows, className }: { rows: SlipRow[]; className?: string }) {
+  return (
+    <dl className={cn("divide-y divide-subtle overflow-hidden rounded-lg border border-hairline", className)}>
+      {rows.map(([label, value, emphasis]) => (
+        <div key={label} className={cn("flex min-h-8 items-center justify-between gap-4 px-3 py-1.5", emphasis && "bg-app")}>
+          <dt className={cn("t-14 min-w-0", emphasis ? "font-medium text-fg" : "text-fg-2")}>{label}</dt>
+          <dd className={cn("t-14 shrink-0 text-right tabular-nums", emphasis ? "font-medium text-fg" : "text-table")}>{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
