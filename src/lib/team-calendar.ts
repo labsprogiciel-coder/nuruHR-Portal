@@ -15,6 +15,9 @@ export type TeamEvent = {
   pending?: boolean;
   employeeId?: string;
   requestId?: string;
+  /** Part-day leave: its hours, in minutes from midnight */
+  start?: number;
+  end?: number;
 };
 
 const KIND_ORDER = { holiday: 0, hr: 1, leave: 2 } as const;
@@ -48,6 +51,7 @@ export function teamEvents(
       pending: r.status === "pending",
       employeeId: r.employeeId,
       requestId: r.id,
+      ...(!r.allDay && r.start !== undefined && r.end !== undefined ? { start: r.start, end: r.end } : {}),
     });
   }
 

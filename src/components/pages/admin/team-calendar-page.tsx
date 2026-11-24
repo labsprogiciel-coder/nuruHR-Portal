@@ -5,7 +5,19 @@ import { ArrowLeftIcon, ArrowRightIcon, BriefcaseIcon, FlagIcon, PlusIcon } from
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { addDays, addMonths, dayOfWeek, daysInMonth, formatLong, formatShort, monthGrid, monthName, WEEKDAYS_SHORT } from "@/lib/dates";
+import {
+  addDays,
+  addMonths,
+  dayOfWeek,
+  daysInMonth,
+  formatLong,
+  formatShort,
+  formatTimeRange,
+  monthGrid,
+  monthName,
+  startOfWeek,
+  WEEKDAYS_SHORT,
+} from "@/lib/dates";
 import { plural } from "@/lib/leave";
 import { eventsByDay, teamEvents, type TeamEvent } from "@/lib/team-calendar";
 import { cn } from "@/lib/utils";
@@ -14,9 +26,9 @@ import { PageHeader, PageRoot } from "@/components/pages/shared/page-chrome";
 import { AddLeaveDialog } from "./add-leave-dialog";
 import { DeclineDialog, TeamRequestDialog, balanceNote, dateRange, useTeam } from "./shared";
 
-type View = "30" | "month" | "year";
+type View = "week" | "month" | "year";
 const VIEWS: { value: View; label: string }[] = [
-  { value: "30", label: "30 days" },
+  { value: "week", label: "Week" },
   { value: "month", label: "Month" },
   { value: "year", label: "Year" },
 ];
@@ -69,7 +81,7 @@ function EventChip({ ev, onOpen, className }: { ev: TeamEvent; onOpen: (ev: Team
 
 /**
  * The company calendar: everyone's leave, public holidays and the dates HR watches, as the
- * next 30 days, a month grid or a whole year. A day opens its events; leave opens the request.
+ * week, a month grid or a whole year. A day opens its events; leave opens the request.
  */
 export function TeamCalendarPage() {
   const { today, employees, everyone, byId, stats, requests } = useTeam();
@@ -85,10 +97,12 @@ export function TeamCalendarPage() {
 
   const anchor = anchorDate ?? today;
   const year = anchor.slice(0, 4);
-  // What's on screen: 30 days from the anchor, the month's six-week grid, or the whole year
+  const timeFormat = useAppStore((s) => s.settings.timeFormat);
+  // What's on screen: the anchor's week, the month's six-week grid, or the whole year
   const grid = useMemo(() => monthGrid(anchor, weekStartsOn), [anchor, weekStartsOn]);
+  const weekStart = startOfWeek(anchor, weekStartsOn);
   const [from, to] =
-    view === "30" ? [anchor, addDays(anchor, 29)] : view === "month" ? [grid[0], grid[41]] : [`${year}-01-01`, `${year}-12-31`];
+    view === "week" ? [weekStart, addDays(weekStart, 6)] : view === "month" ? [grid[0], grid[41]] : [`${year}-01-01`, `${year}-12-31`];
   const events = useMemo(() => teamEvents({ requests, employees: everyone, holidays }, from, to), [requests, everyone, holidays, from, to]);
   const byDay = useMemo(() => eventsByDay(events, from, to), [events, from, to]);
 
@@ -98,7 +112,7 @@ export function TeamCalendarPage() {
       : view === "month"
         ? `${monthName(anchor)} ${year}`
         : `${formatShort(from)}${sameYear(from, to) ? "" : `, ${from.slice(0, 4)}`} – ${formatShort(to)}, ${to.slice(0, 4)}`;
-  const step = (n: number) => setAnchor(view === "30" ? addDays(anchor, 30 * n) : addMonths(anchor.slice(0, 8) + "01", view === "month" ? n : 12 * n));
+  const step = (n: number) => setAnchor(view === "week" ? addDays(anchor, 7 * n) : addMonths(anchor.slice(0, 8) + "01", view === "month" ? n : 12 * n));
   const leaveCount = events.filter((e) => e.kind === "leave").length;
   const holidayCount = events.filter((e) => e.kind === "holiday").length;
 
@@ -117,10 +131,10 @@ export function TeamCalendarPage() {
             <Button onClick={() => setAnchor(null)} disabled={anchor === today}>
               Today
             </Button>
-            <Button size="icon" aria-label={`Previous ${view === "30" ? "30 days" : view}`} onClick={() => step(-1)}>
+            <Button size="icon" aria-label={`Previous ${view}`} onClick={() => step(-1)}>
               <ArrowLeftIcon />
             </Button>
-            <Button size="icon" aria-label={`Next ${view === "30" ? "30 days" : view}`} onClick={() => step(1)}>
+            <Button size="icon" aria-label={`Next ${view}`} onClick={() => step(1)}>
               <ArrowRightIcon />
             </Button>
             <Tabs value={view} onValueChange={(v) => setView(v as View)}>
@@ -200,43 +214,55 @@ export function TeamCalendarPage() {
             })}
           </div>
         </div>
-      ) : view === "30" ? (
-        <ul className="divide-y divide-subtle">
-          {Array.from({ length: 30 }, (_, i) => addDays(from, i))
-            .filter((d) => byDay.has(d) || d === today)
-            .map((d) => {
-              const list = byDay.get(d) ?? [];
-              return (
-                <li key={d} className="flex items-start gap-3 px-4 py-3 md:gap-5">
-                  <button
-                    type="button"
-                    onClick={() => setOpenDay(d)}
-                    aria-label={formatLong(d)}
-                    className="flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-0.5 outline-none hover-fine:bg-hover focus-visible:bg-hover"
-                  >
-                    <span className="text-[11px] leading-none tracking-wide text-fg-2">{WEEKDAYS_SHORT[dayOfWeek(d)]}</span>
-                    <span
-                      className={cn(
-                        "flex size-8 items-center justify-center rounded-full text-[16px] tabular-nums",
-                        d === today ? "bg-brand font-medium text-on-accent" : "text-fg",
-                      )}
-                    >
-                      {Number(d.slice(8))}
-                    </span>
-                    <span className="text-[11px] leading-none text-placeholder">{monthName(d).slice(0, 3)}</span>
-                  </button>
-                  <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1">
-                    {list.length ? (
-                      list.map((ev) => <EventChip key={ev.id} ev={ev} onOpen={openEvent} className="h-7 w-fit max-w-full px-2" />)
-                    ) : (
-                      <p className="t-14 py-1 text-fg-2">Nothing today</p>
+      ) : view === "week" ? (
+        // Desktop: seven columns side by side. Phones: the same days stacked as rows.
+        <div className="grid flex-1 md:min-h-[480px] md:grid-cols-7">
+          {Array.from({ length: 7 }, (_, i) => addDays(from, i)).map((d) => {
+            const list = byDay.get(d) ?? [];
+            const weekend = dayOfWeek(d) === 0 || dayOfWeek(d) === 6;
+            return (
+              <section
+                key={d}
+                aria-label={formatLong(d)}
+                className={cn(
+                  "flex min-w-0 gap-3 border-b border-subtle px-4 py-3 md:flex-col md:gap-2 md:border-r md:border-b-0 md:px-1.5 md:py-0 md:last:border-r-0",
+                  weekend && "bg-app/60",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenDay(d)}
+                  aria-label={`${formatLong(d)}, ${list.length ? plural(list.length, "event", "events") : "no events"}`}
+                  className="flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-0.5 outline-none hover-fine:bg-hover focus-visible:bg-hover md:w-full md:border-b md:border-hairline md:py-2"
+                >
+                  <span className="text-[11px] leading-none tracking-wide text-fg-2">{WEEKDAYS_SHORT[dayOfWeek(d)]}</span>
+                  <span
+                    className={cn(
+                      "flex size-8 items-center justify-center rounded-full text-[16px] tabular-nums",
+                      d === today ? "bg-brand font-medium text-on-accent" : "text-fg",
                     )}
-                  </div>
-                </li>
-              );
-            })}
-          {byDay.size === 0 && (today < from || today > to) ? <li className="t-14 px-4 py-10 text-center text-fg-2">Nothing in these 30 days.</li> : null}
-        </ul>
+                  >
+                    {Number(d.slice(8))}
+                  </span>
+                </button>
+                <div className="flex min-w-0 flex-1 flex-col gap-1 max-md:pt-1 md:pb-2">
+                  {list.length ? (
+                    list.map((ev) => (
+                      <div key={ev.id} className="grid min-w-0 gap-0.5">
+                        <EventChip ev={ev} onOpen={openEvent} className="h-7 max-w-full px-2 max-md:w-fit" />
+                        {ev.start !== undefined && ev.end !== undefined ? (
+                          <span className="t-12 px-2 text-fg-2 tabular-nums">{formatTimeRange(ev.start, ev.end, timeFormat)}</span>
+                        ) : null}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="t-12 py-1.5 text-placeholder md:px-2">Nothing</p>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+        </div>
       ) : (
         <div className="grid gap-x-6 gap-y-7 p-4 sm:grid-cols-2 md:p-5 lg:grid-cols-3 2xl:grid-cols-4">
           {Array.from({ length: 12 }, (_, m) => `${year}-${pad(m + 1)}-01`).map((first) => {
