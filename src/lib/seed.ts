@@ -1,3 +1,4 @@
+import { freezeRuns } from "./team";
 import type { AppState, Asset, Employee, TeamRequest } from "./types";
 
 /** The calendar opens on the week shown in the design, with Tue Nov 10 selected. */
@@ -6,11 +7,17 @@ export const DESIGN_DATE = "2026-11-10";
 /** Used only for server rendering; the browser swaps in the real date on hydration. */
 export const SERVER_TODAY = "2026-10-26";
 
-export const STATE_VERSION = 8;
+export const STATE_VERSION = 9;
 
 const h = (hours: number, minutes = 0) => hours * 60 + minutes;
 
 export function createSeed(): AppState {
+  const seed = seedData();
+  // September and October are closed: their payslips are frozen like any validated month.
+  return { ...seed, payrollRuns: freezeRuns(seed.payrollRuns, seed.team) };
+}
+
+function seedData(): AppState {
   return {
     version: STATE_VERSION,
     workspaceId: "ws-main",

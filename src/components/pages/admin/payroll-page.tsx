@@ -24,7 +24,10 @@ import { formatMoney } from "@/lib/money";
 import {
   advanceSchedule,
   ALLOWANCES,
+  canReopenMonth,
+  canValidateMonth,
   computePayslip,
+  nextMonthToValidate,
   normalizeSlip,
   PAYROLL_RULES,
   payrollTotals,
@@ -32,7 +35,7 @@ import {
   type Payslip,
 } from "@/lib/payroll";
 import { cnssDeclarationRows, downloadCsv, iutsDeclarationRows, printPayslip } from "@/lib/payroll-documents";
-import { employedIn } from "@/lib/team";
+import { employedIn, monthShare } from "@/lib/team";
 import type { Employee, PayrollInput, PayrollRun } from "@/lib/types";
 import { selectWorkspaceName, useAppStore } from "@/stores/app-store";
 import { Card, PageHeader, PageRoot, StatGrid, StatTile } from "@/components/pages/shared/page-chrome";
@@ -97,11 +100,16 @@ export function PayrollPage() {
   const lines = useMemo((): Record<string, Payslip> => {
     if (run?.lines) return Object.fromEntries(Object.entries(run.lines).map(([id, s]) => [id, normalizeSlip(s)]));
     const employed = everyone.filter((e) => employedIn(e, current));
-    return Object.fromEntries(employed.map((e) => [e.id, computePayslip(e, inputs[e.id], advanceDue[e.id] ?? 0)]));
+    return Object.fromEntries(employed.map((e) => [e.id, computePayslip(e, inputs[e.id], advanceDue[e.id] ?? 0, monthShare(e, current))]));
   }, [everyone, run, current, inputs, advanceDue]);
   // Former employees stay in the months they were paid for
   const staff = everyone.filter((e) => lines[e.id]);
   const totals = payrollTotals(staff.map((e) => lines[e.id]));
+  // Months close in order: only the one after the latest closed month can be validated, and
+  // only the latest can be reopened.
+  const nextToValidate = nextMonthToValidate(runs);
+  const canValidate = canValidateMonth(runs, current);
+  const canReopen = canReopenMonth(runs, current);
   const step = (n: number) => setMonth(addMonths(current + "-01", n).slice(0, 7));
 
   const exportPayroll = () =>
@@ -129,7 +137,9 @@ export function PayrollPage() {
             ? `Paid on ${formatLong(run.paidAt.slice(0, 10))} · ${plural(staff.length, "employee", "employees")}`
             : status === "validated"
               ? `Validated on ${formatLong(run!.validatedAt.slice(0, 10))}, ready to pay`
-              : `Draft · ${plural(staff.length, "employee", "employees")} · open someone to add a bonus, overtime or absence`
+              : !canValidate && nextToValidate
+                ? `Draft · validate ${monthLabel(nextToValidate)} first: months are closed in order`
+                : `Draft · ${plural(staff.length, "employee", "employees")} · open someone to add a bonus, overtime or absence`
         }
         actions={
           <>
@@ -157,14 +167,16 @@ export function PayrollPage() {
               </DropdownMenuContent>
             </DropdownMenu>
             {status === "draft" ? (
-              <Button variant="brand" onClick={() => validate(current, lines)}>
+              <Button variant="brand" disabled={!canValidate} onClick={() => validate(current, lines)}>
                 <CheckIcon /> Validate
               </Button>
             ) : status === "validated" ? (
               <>
-                <Button onClick={() => reopen(current)}>
-                  <RotateCcwIcon /> Reopen
-                </Button>
+                {canReopen ? (
+                  <Button onClick={() => reopen(current)}>
+                    <RotateCcwIcon /> Reopen
+                  </Button>
+                ) : null}
                 <Button variant="brand" onClick={() => markPaid(current)}>
                   <BanknoteIcon /> Mark as paid
                 </Button>
@@ -258,6 +270,7 @@ export function PayrollPage() {
         slip={open ? lines[open.id] : null}
         input={open ? inputs[open.id] : undefined}
         advanceDue={open ? (advanceDue[open.id] ?? 0) : 0}
+        share={open ? monthShare(open, current) : 1}
         editable={status === "draft"}
         month={current}
         company={company}
@@ -311,6 +324,7 @@ function PayslipDialog({
   slip,
   input,
   advanceDue,
+  share,
   editable,
   month,
   company,
@@ -320,6 +334,8 @@ function PayslipDialog({
   slip: Payslip | null;
   input: PayrollInput | undefined;
   advanceDue: number;
+  /** Part of the month they were employed */
+  share: number;
   editable: boolean;
   month: string;
   company: string;
@@ -342,7 +358,7 @@ function PayslipDialog({
     absenceDays: Math.min(PAYROLL_RULES.time.daysPerMonth, num(draft.absenceDays)) || undefined,
     note: draft.note.trim() || undefined,
   };
-  const s = e && slip ? (editable ? computePayslip(e, parsed, advanceDue) : slip) : null;
+  const s = e && slip ? (editable ? computePayslip(e, parsed, advanceDue, share) : slip) : null;
   const { cnss, iuts } = PAYROLL_RULES;
   const changed = JSON.stringify(parsed) !== JSON.stringify(toParsed(input));
 
@@ -399,7 +415,7 @@ function PayslipDialog({
             <div className="overflow-hidden rounded-lg border border-hairline">
               <FieldList
                 rows={[
-                  ["Base salary", formatMoney(s.base)],
+                  [s.share ? `Base salary (${pct(s.share)} of the month)` : "Base salary", formatMoney(s.base)],
                   ...ALLOWANCES.filter((a) => s.allowances[a.kind]).map((a): [string, string] => [`${a.label} allowance`, formatMoney(s.allowances[a.kind]!)]),
                   ...(s.overtime ? ([["Overtime", formatMoney(s.overtime)]] as [string, string][]) : []),
                   ...(s.bonus ? ([["Bonus", formatMoney(s.bonus)]] as [string, string][]) : []),

@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { formatShort, monthName, rangeKeys, toKey } from "@/lib/dates";
-import { countedDays, durationLabel, LEAVE_COLORS, WORKDAY_MINUTES } from "@/lib/leave";
+import { countedDays, durationLabel, LEAVE_COLORS, overlappingRequest, WORKDAY_MINUTES } from "@/lib/leave";
 import { createSeed, STATE_VERSION } from "@/lib/seed";
-import { lastRepaymentMonth, type Payslip } from "@/lib/payroll";
-import { initialsOf, ME } from "@/lib/team";
+import { advanceSchedule, canReopenMonth, canValidateMonth, lastRepaymentMonth, repaidBefore, type Payslip } from "@/lib/payroll";
+import { freezeRuns, initialsOf, ME } from "@/lib/team";
 import type {
   Asset,
   AppNotification,
@@ -54,7 +54,8 @@ type Actions = {
   duplicateEvent: (id: string) => void;
   // leave
   measureRequest: (input: RequestInput) => { days: number; label: string };
-  submitRequest: (input: RequestInput, existingId?: string) => LeaveRequest;
+  /** Returns null, changing nothing, when the dates clash with another pending or approved request. */
+  submitRequest: (input: RequestInput, existingId?: string) => LeaveRequest | null;
   setRequestStatus: (id: string, status: LeaveStatus) => void;
   deleteRequest: (id: string) => void;
   // payroll
@@ -358,6 +359,10 @@ export const useAppStore = create<AppStore>()(
         return { days: n, label: durationLabel(n, 0) };
       },
       submitRequest: (input, existingId) => {
+        if (overlappingRequest(get().requests, input, existingId)) {
+          toast.error("You already have leave on these dates");
+          return null;
+        }
         const m = get().measureRequest(input);
         const req: LeaveRequest = {
           id: existingId ?? uid("rq"),
@@ -448,6 +453,8 @@ export const useAppStore = create<AppStore>()(
         else toast.error("Request declined", { description, action: undoReview });
       },
       validatePayroll: (month, lines) => {
+        // Months close in order (see nextMonthToValidate)
+        if (!canValidateMonth(get().payrollRuns, month)) return;
         set((s) => ({
           payrollRuns: { ...s.payrollRuns, [month]: { month, status: "validated", validatedAt: new Date().toISOString(), lines } },
         }));
@@ -471,15 +478,27 @@ export const useAppStore = create<AppStore>()(
         toast.success("Advance recorded", { description: `${name} · repaid from ${monthName(a.firstMonth + "-01")} ${a.firstMonth.slice(0, 4)}` });
       },
       removeAdvance: (id) => {
+        const s = get();
+        const target = s.advances.find((a) => a.id === id);
+        if (!target) return;
+        // Once a repayment has been withheld for it, the advance is part of closed payslips
+        const mine = s.advances.filter((a) => a.employeeId === target.employeeId);
+        const { rows } = advanceSchedule(mine, repaidBefore(s.payrollRuns, target.employeeId, "9999-12"), "9999-12");
+        if (rows.find((r) => r.advance.id === id)?.paid) {
+          toast.error("This advance is already being repaid", { description: "It can't be removed once payroll has withheld a repayment." });
+          return;
+        }
         set((s) => ({ advances: s.advances.filter((a) => a.id !== id) }));
         toast("Advance removed");
       },
-      reopenPayroll: (month) =>
+      reopenPayroll: (month) => {
+        if (!canReopenMonth(get().payrollRuns, month)) return;
         set((s) => {
           const runs = { ...s.payrollRuns };
           delete runs[month];
           return { payrollRuns: runs };
-        }),
+        });
+      },
       markPayrollPaid: (month) => {
         const run = get().payrollRuns[month];
         if (!run) return;
@@ -714,10 +733,16 @@ export const useAppStore = create<AppStore>()(
       storage: createJSONStorage(() => safeLocalStorage),
       // Hydrate after mount so the server-rendered markup (the seed) matches.
       skipHydration: true,
-      // Every older version gets the v8 payroll additions (no monthly inputs, no advances).
+      // Every older version gets the v8 payroll additions (no monthly inputs, no advances) and
+      // v9's frozen payslips for closed months that were saved without any.
       migrate: (persisted, version) => {
         const next: Partial<AppState> = migrateBefore8(persisted as AppState, version);
-        return { ...next, payrollInputs: next.payrollInputs ?? {}, advances: next.advances ?? [] } as AppState;
+        return {
+          ...next,
+          payrollInputs: next.payrollInputs ?? {},
+          advances: next.advances ?? [],
+          payrollRuns: freezeRuns(next.payrollRuns ?? {}, next.team ?? []),
+        } as AppState;
       },
       partialize: (s) => {
         const data: Partial<AppStore> = {};

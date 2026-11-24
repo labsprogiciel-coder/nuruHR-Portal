@@ -24,7 +24,7 @@ type Line = [label: string, amount: number];
 export function printPayslip(e: Employee, s: Payslip, month: string, company: string) {
   const { cnss, iuts } = PAYROLL_RULES;
   const earnings: Line[] = [
-    ["Salaire de base", s.base],
+    [s.share ? `Salaire de base (prorata : ${pct(s.share)} du mois)` : "Salaire de base", s.base],
     ...ALLOWANCES.filter((a) => s.allowances[a.kind]).map((a): Line => [a.french, s.allowances[a.kind]!]),
     ...(s.overtime ? ([["Heures supplémentaires", s.overtime]] as Line[]) : []),
     ...(s.bonus ? ([["Prime", s.bonus]] as Line[]) : []),

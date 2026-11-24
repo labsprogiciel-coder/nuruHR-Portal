@@ -65,3 +65,37 @@ describe("equipment", () => {
     expect(asset("as-2")).toMatchObject({ status: "in-stock", condition: "Good", issue: undefined });
   });
 });
+
+describe("guards", () => {
+  const state = () => useAppStore.getState();
+
+  it("refuses leave that overlaps an existing request", () => {
+    const first = state().submitRequest({ type: "Annual leave", from: "2027-03-01", to: "2027-03-05", allDay: true, start: 0, end: 0, notes: "" });
+    expect(first).not.toBeNull();
+    const count = state().requests.length;
+    expect(state().submitRequest({ type: "Annual leave", from: "2027-03-05", to: "2027-03-08", allDay: true, start: 0, end: 0, notes: "" })).toBeNull();
+    expect(state().requests.length).toBe(count);
+    // Editing the same request is fine
+    expect(state().submitRequest({ type: "Annual leave", from: "2027-03-02", to: "2027-03-05", allDay: true, start: 0, end: 0, notes: "" }, first!.id)).not.toBeNull();
+  });
+
+  it("validates payroll months in order and keeps repaid advances", () => {
+    // September and October are closed in the demo, so November is next
+    state().validatePayroll("2026-12", {});
+    expect(state().payrollRuns["2026-12"]).toBeUndefined();
+    const adv = state().advances.find((a) => a.employeeId === "emp-rasmata")!;
+    const slip = { ...state().payrollRuns["2026-10"].lines!["emp-rasmata"], advance: adv.installment };
+    state().validatePayroll("2026-11", { "emp-rasmata": slip });
+    expect(state().payrollRuns["2026-11"].status).toBe("validated");
+    // A repayment was withheld, so the advance stays
+    state().removeAdvance(adv.id);
+    expect(state().advances.some((a) => a.id === adv.id)).toBe(true);
+    // Only the latest month reopens
+    state().reopenPayroll("2026-10");
+    expect(state().payrollRuns["2026-10"]).toBeDefined();
+    state().reopenPayroll("2026-11");
+    expect(state().payrollRuns["2026-11"]).toBeUndefined();
+    state().removeAdvance(adv.id);
+    expect(state().advances.some((a) => a.id === adv.id)).toBe(false);
+  });
+});

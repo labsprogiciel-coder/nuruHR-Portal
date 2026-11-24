@@ -32,7 +32,7 @@ import { formatDays, plural } from "@/lib/leave";
 import { formatMoney } from "@/lib/money";
 import { ALLOWANCES, computePayslip, normalizeSlip } from "@/lib/payroll";
 import { printPayslip } from "@/lib/payroll-documents";
-import { employedIn, inDays, ME } from "@/lib/team";
+import { inDays, ME } from "@/lib/team";
 import type { Asset } from "@/lib/types";
 import { selectWorkspaceName, useAppStore } from "@/stores/app-store";
 import { AssetRow, AssetStatusBadge, AssignAssetDialog, heldSince } from "@/components/assets/shared";
@@ -67,7 +67,6 @@ export function EmployeePage({ id }: { id: string }) {
   const benefits = useAppStore((s) => s.benefits);
   const myDocuments = useAppStore((s) => s.documents);
   const runs = useAppStore((s) => s.payrollRuns);
-  const payrollInputs = useAppStore((s) => s.payrollInputs);
   const e = byId.get(id);
   const s = stats.get(id);
   const history = useMemo(
@@ -110,9 +109,10 @@ export function EmployeePage({ id }: { id: string }) {
     docs.push({ id: "certificate", name: "Work certificate (certificat de travail)", meta: `Last day ${formatLong(dep.date)}`, open: () => printWorkCertificate(e, company, today) });
   }
   for (const [month, run] of Object.entries(runs).sort(([a], [b]) => b.localeCompare(a))) {
+    // Closed months always carry their payslips, so a later raise never rewrites them
     const frozen = run.lines?.[e.id];
-    if (!frozen && (run.lines || !employedIn(e, month))) continue;
-    const slip = frozen ? normalizeSlip(frozen) : computePayslip(e, payrollInputs[month]?.[e.id]);
+    if (!frozen) continue;
+    const slip = normalizeSlip(frozen);
     const label = `${monthName(month + "-01")} ${month.slice(0, 4)}`;
     docs.push({
       id: `payslip-${month}`,

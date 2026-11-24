@@ -59,8 +59,10 @@ export const ALLOWANCES: { kind: AllowanceKind; label: string; french: string }[
 ];
 
 export type Payslip = {
-  /** Base salary for the month */
+  /** Base salary for the month (pro-rated when `share` is set) */
   base: number;
+  /** Part of the month worked, when they joined or left during it; absent for a full month */
+  share?: number;
   /** Recurring allowances, by kind */
   allowances: Partial<Record<AllowanceKind, number>>;
   overtime: number;
@@ -116,35 +118,42 @@ export function variablePay(base: number, input: PayrollInput = {}) {
 /**
  * One month's pay for an employee: base salary, recurring allowances, the month's overtime,
  * bonus and unpaid absence, then CNSS and IUTS, and finally any salary advance repayment
- * (`advanceDue`, capped so the employee is never paid less than nothing).
+ * (`advanceDue`, capped so the employee is never paid less than nothing). `share` is the part
+ * of the month they were employed (see `monthShare`): base salary and allowances are pro-rated
+ * by it, while overtime and absence stay priced on the full monthly salary.
  */
 export function computePayslip(
   e: Pick<Employee, "monthlySalary" | "dependents" | "executive" | "allowances">,
   input: PayrollInput = {},
   advanceDue = 0,
+  share = 1,
 ): Payslip {
   const { cnss, iuts } = PAYROLL_RULES;
-  const base = e.monthlySalary;
+  const part = Math.min(1, Math.max(0, share));
+  const base = round(e.monthlySalary * part);
   const allowances: Payslip["allowances"] = {};
   let allowanceTotal = 0;
   let exempt = 0;
   for (const { kind } of ALLOWANCES) {
-    const amount = round(e.allowances?.[kind] ?? 0);
+    const amount = round((e.allowances?.[kind] ?? 0) * part);
     if (amount <= 0) continue;
     allowances[kind] = amount;
     allowanceTotal += amount;
     const rule = iuts.exempt[kind];
     if (rule) exempt += Math.min(amount, round(base * rule.share), rule.cap);
   }
-  const { overtime, bonus, absence } = variablePay(base, input);
+  const variable = variablePay(e.monthlySalary, input);
+  const { overtime, bonus } = variable;
+  // Unpaid absence can't take off more than the base salary earned this month
+  const absence = Math.min(variable.absence, base);
   const gross = Math.max(0, base + allowanceTotal + overtime + bonus - absence);
   const cnssBase = Math.min(gross, cnss.ceiling);
   const cnssEmployee = round(cnssBase * cnss.employee);
   const abatement = round(Math.max(0, base - absence) * (e.executive ? iuts.abatement.executive : iuts.abatement.staff));
   const taxable = Math.max(0, Math.floor((gross - exempt - cnssEmployee - abatement) / 100) * 100);
   const iutsBeforeReduction = round(progressiveTax(taxable));
-  const share = iuts.familyReduction[Math.min(e.dependents, iuts.familyReduction.length - 1)];
-  const familyReduction = round(iutsBeforeReduction * share);
+  const reduction = iuts.familyReduction[Math.min(e.dependents, iuts.familyReduction.length - 1)];
+  const familyReduction = round(iutsBeforeReduction * reduction);
   const iutsDue = iutsBeforeReduction - familyReduction;
   const employerRate = cnss.employer.pension + cnss.employer.family + cnss.employer.workAccidents;
   const cnssEmployer = round(cnssBase * employerRate);
@@ -152,6 +161,7 @@ export function computePayslip(
   const advance = Math.max(0, Math.min(round(advanceDue), net));
   return {
     base,
+    ...(part < 1 ? { share: part } : {}),
     allowances,
     overtime,
     bonus,
@@ -210,6 +220,36 @@ export function repaidBefore(runs: Record<string, PayrollRun>, employeeId: strin
   let total = 0;
   for (const [m, run] of Object.entries(runs)) if (m < month) total += run.lines?.[employeeId]?.advance ?? 0;
   return total;
+}
+
+/** The most recent validated or paid month, or null when payroll has never been run. */
+export function latestRunMonth(runs: Record<string, PayrollRun>): string | null {
+  return Object.keys(runs).sort().at(-1) ?? null;
+}
+
+const nextMonth = (month: string) => {
+  const [y, m] = month.split("-").map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+};
+
+/**
+ * The only month that can be validated next: the one right after the latest run (any month
+ * when payroll has never been run). Months close in order because advance repayments are
+ * worked out from the months already closed; out of order, the same instalment is withheld twice.
+ */
+export function nextMonthToValidate(runs: Record<string, PayrollRun>): string | null {
+  const latest = latestRunMonth(runs);
+  return latest ? nextMonth(latest) : null;
+}
+
+export function canValidateMonth(runs: Record<string, PayrollRun>, month: string) {
+  const next = nextMonthToValidate(runs);
+  return !runs[month] && (next === null || next === month);
+}
+
+/** Only the latest month can go back to draft, and only before it's paid. */
+export function canReopenMonth(runs: Record<string, PayrollRun>, month: string) {
+  return runs[month]?.status === "validated" && latestRunMonth(runs) === month;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceSchedule, computePayslip, lastRepaymentMonth, normalizeSlip, payrollTotals, progressiveTax, repaidBefore, variablePay } from "./payroll";
+import { advanceSchedule, canReopenMonth, canValidateMonth, computePayslip, nextMonthToValidate, lastRepaymentMonth, normalizeSlip, payrollTotals, progressiveTax, repaidBefore, variablePay } from "./payroll";
 
 describe("Burkina Faso payroll", () => {
   it("caps CNSS at 800 000 FCFA and applies the scale and family reduction", () => {
@@ -106,5 +106,35 @@ describe("Burkina Faso payroll", () => {
     expect(old.toPay).toBe(420_000);
     expect(old.advance).toBe(0);
     expect(old.base).toBe(500_000);
+  });
+
+  it("closes months in order, so an advance instalment is never withheld twice", () => {
+    const run = (month: string, status: "validated" | "paid" = "validated") => ({ month, status, validatedAt: "" });
+    expect(canValidateMonth({}, "2026-11")).toBe(true);
+    const runs = { "2026-09": run("2026-09", "paid"), "2026-10": run("2026-10") };
+    expect(nextMonthToValidate(runs)).toBe("2026-11");
+    expect(canValidateMonth(runs, "2026-11")).toBe(true);
+    expect(canValidateMonth(runs, "2026-12")).toBe(false);
+    expect(canValidateMonth(runs, "2026-10")).toBe(false);
+    expect(nextMonthToValidate({ "2026-12": run("2026-12") })).toBe("2027-01");
+    // Only the latest month reopens, and not once it's paid
+    expect(canReopenMonth(runs, "2026-10")).toBe(true);
+    expect(canReopenMonth(runs, "2026-09")).toBe(false);
+    expect(canReopenMonth({ "2026-10": run("2026-10", "paid") }, "2026-10")).toBe(false);
+  });
+
+  it("pro-rates base salary and allowances for a part month", () => {
+    const e = { monthlySalary: 600_000, dependents: 0, allowances: { transport: 30_000 } };
+    const full = computePayslip(e);
+    expect(full.share).toBeUndefined();
+    const part = computePayslip(e, {}, 0, 6 / 30);
+    expect(part.share).toBeCloseTo(0.2);
+    expect(part.base).toBe(120_000);
+    expect(part.allowances.transport).toBe(6_000);
+    expect(part.gross).toBe(126_000);
+    // Overtime is still priced on the full monthly salary
+    expect(computePayslip(e, { overtime15: 10 }, 0, 0.5).overtime).toBe(computePayslip(e, { overtime15: 10 }).overtime);
+    // Absence can't take off more than the base earned
+    expect(computePayslip(e, { absenceDays: 20 }, 0, 0.2).absence).toBe(120_000);
   });
 });
