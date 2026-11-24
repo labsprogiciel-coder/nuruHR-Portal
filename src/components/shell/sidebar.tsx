@@ -17,7 +17,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { activePage, NAV_GROUPS, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
+import { activePage, NAV_GROUPS, SETTINGS_ITEM, SHOW_MY_SPACE, type NavItem } from "@/lib/nav";
+import { ME } from "@/lib/team";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app-store";
 import { openOverlay } from "@/stores/overlay-store";
@@ -102,8 +103,8 @@ function AccountMenu() {
         <DropdownMenuLabel className="t-12 text-fg-2">Signed in as {profile.email}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link href="/personal-details">
-            <UserIcon /> Personal details
+          <Link href={SHOW_MY_SPACE ? "/personal-details" : `/admin/employees/${ME}`}>
+            <UserIcon /> {SHOW_MY_SPACE ? "Personal details" : "My file"}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
@@ -171,10 +172,12 @@ export function SidebarHeader() {
           <NotificationsPopover side="right" align="start" />
           <HelpMenu />
         </div>
-        <Button variant="brand" data-close-nav className="w-full gap-1.5 max-lg:h-10" onClick={() => openOverlay({ kind: "request" })}>
-          <Icon name="request-time-off" className="text-on-accent" />
-          Request time-off
-        </Button>
+        {SHOW_MY_SPACE ? (
+          <Button variant="brand" data-close-nav className="w-full gap-1.5 max-lg:h-10" onClick={() => openOverlay({ kind: "request" })}>
+            <Icon name="request-time-off" className="text-on-accent" />
+            Request time-off
+          </Button>
+        ) : null}
       </div>
     </div>
   );

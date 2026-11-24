@@ -4,21 +4,25 @@ export type NavItem = { href: string; label: string; icon: IconName; shortcut?: 
 export type NavGroup = { label: string; items: NavItem[] };
 
 /**
- * The portal is the admin's tool first: HR comes first in the sidebar and is where the app
- * opens. "My space" is the signed-in person's own file, since admins are employees too;
- * most employees use the mobile app for theirs.
+ * The signed-in person's own pages (their leave, documents, benefits…) and the freelancer
+ * pages. Employees use the mobile app for these, so the portal hides them: the pages still
+ * exist and open by address, they are only left out of the sidebar and the search. Set this
+ * to true to bring them back.
  */
-export const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "HR",
-    items: [
-      { href: "/admin", label: "HR overview", icon: "nav-dashboard" },
-      { href: "/admin/approvals", label: "Approvals", icon: "status-approved" },
-      { href: "/admin/employees", label: "Employees", icon: "nav-personal" },
-      { href: "/admin/payroll", label: "Payroll", icon: "nav-withdrawal" },
-      { href: "/admin/assets", label: "Equipment", icon: "nav-assets" },
-    ],
-  },
+export const SHOW_MY_SPACE = false;
+
+const HR_GROUP: NavGroup = {
+  label: "HR",
+  items: [
+    { href: "/admin", label: "HR overview", icon: "nav-dashboard" },
+    { href: "/admin/approvals", label: "Approvals", icon: "status-approved" },
+    { href: "/admin/employees", label: "Employees", icon: "nav-personal" },
+    { href: "/admin/payroll", label: "Payroll", icon: "nav-withdrawal" },
+    { href: "/admin/assets", label: "Equipment", icon: "nav-assets" },
+  ],
+};
+
+const MY_SPACE_GROUPS: NavGroup[] = [
   {
     label: "My space",
     items: [
@@ -41,12 +45,19 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+/** What the sidebar shows: the portal is the admin's tool, so HR comes first. */
+export const NAV_GROUPS: NavGroup[] = [HR_GROUP, ...(SHOW_MY_SPACE ? MY_SPACE_GROUPS : [])];
+
 /** Where the app opens. */
 export const HOME = "/admin";
 
 export const SETTINGS_ITEM: NavItem = { href: "/settings", label: "Settings", icon: "settings" };
 
-export const ALL_PAGES: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), SETTINGS_ITEM];
+/** The pages offered in the sidebar and the search. */
+export const VISIBLE_PAGES: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), SETTINGS_ITEM];
+
+/** Every page, hidden ones included, so a hidden page opened by address still gets its title. */
+export const ALL_PAGES: NavItem[] = [...[HR_GROUP, ...MY_SPACE_GROUPS].flatMap((g) => g.items), SETTINGS_ITEM];
 
 /** The nav item for a path; the longest match wins, so /admin/approvals isn't /admin. */
 export function activePage(pathname: string): NavItem | undefined {

@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { deleteCalendarEvent } from "@/components/calendar/delete-event";
+import { SHOW_MY_SPACE } from "@/lib/nav";
 import { redo, undo } from "@/stores/app-store";
 import { useToday } from "@/hooks/use-today";
 import { useCalendarStore } from "@/stores/calendar-store";
@@ -78,7 +79,10 @@ export function KeyboardShortcuts() {
       const onCalendar = pathname === "/time-off";
       const key = e.key;
 
+      // With My space hidden, its shortcuts only work on its own pages, not across the HR ones
+      const personal = SHOW_MY_SPACE || !(pathname.startsWith("/admin") || pathname === "/settings");
       if (key === "?") openOverlay({ kind: "shortcuts" });
+      else if (!personal) return;
       else if (key === "n" || key === "N") openOverlay({ kind: "event", date: cal.date });
       else if (key === "r" || key === "R") openOverlay({ kind: "request" });
       else if (key === "t" || key === "T") {
