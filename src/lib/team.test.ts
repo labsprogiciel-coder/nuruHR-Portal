@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSeed } from "./seed";
-import { allRequests, employedIn, freezeRuns, monthShare, employeeLeaveStats, employees, hrAlerts, initialsOf, isCurrent, isOff, ME } from "./team";
+import { allRequests, departmentBreakdown, employedIn, freezeRuns, monthShare, employeeLeaveStats, employees, hrAlerts, initialsOf, isCurrent, isOff, ME } from "./team";
 import type { Employee } from "./types";
 
 const TODAY = "2026-10-31";
@@ -138,5 +138,28 @@ describe("hrAlerts", () => {
     expect(freezeRuns(frozen, raised)["2026-10"].lines![ME].gross).toBe(before);
     // The demo's closed months come frozen
     expect(Object.values(seed.payrollRuns).every((r) => r.lines && Object.keys(r.lines).length > 0)).toBe(true);
+  });
+
+  it("breaks the team down by department, in a stable order", () => {
+    const seed = createSeed();
+    const slices = departmentBreakdown(seed.team);
+    expect(slices.map((d) => d.name)).toEqual(["Design", "Engineering", "Finance", "Management", "Operations", "Product", "Sales"]);
+    expect(slices.find((d) => d.name === "Engineering")).toMatchObject({ count: 2, slot: 2 });
+    expect(slices.reduce((n, d) => n + d.count, 0)).toBe(seed.team.length);
+    expect(slices.reduce((n, d) => n + d.share, 0)).toBeCloseTo(1);
+    expect(slices.every((d) => d.payroll > 0)).toBe(true);
+  });
+
+  it("groups the smallest departments as Other when there are more than eight", () => {
+    const base = createSeed().team[0];
+    const team = Array.from({ length: 10 }, (_, i) => ({ ...base, department: `Dept ${String.fromCharCode(65 + i)}` }));
+    team.push({ ...base, department: "Dept J" }, { ...base, department: "Dept J" });
+    const slices = departmentBreakdown(team);
+    expect(slices).toHaveLength(8);
+    expect(slices.at(-1)).toMatchObject({ name: "Other (3 departments)", count: 3, slot: null });
+    // The largest department is kept even though it sorts last
+    expect(slices.some((d) => d.name === "Dept J" && d.count === 3)).toBe(true);
+    expect(slices.slice(0, 7).map((d) => d.slot)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(departmentBreakdown([])).toEqual([]);
   });
 });

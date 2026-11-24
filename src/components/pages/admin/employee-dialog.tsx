@@ -15,6 +15,7 @@ import { ME } from "@/lib/team";
 import type { AllowanceKind, ContractType, Employee, PayoutMethod } from "@/lib/types";
 import { useToday } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
+import { PayoutLogo } from "./payout-logo";
 
 export const CONTRACTS: { value: ContractType; label: string }[] = [
   { value: "CDI", label: "Permanent (CDI)" },
@@ -397,6 +398,7 @@ export function EmployeeDialog({
                   <SelectContent>
                     {PAYOUT_ORDER.map((m) => (
                       <SelectItem key={m} value={m}>
+                        <PayoutLogo method={m} size={18} />
                         {PAYOUT_METHODS[m].label}
                       </SelectItem>
                     ))}

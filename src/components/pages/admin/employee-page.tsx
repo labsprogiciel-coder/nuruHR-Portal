@@ -43,7 +43,7 @@ import { formatDays, plural } from "@/lib/leave";
 import { formatMoney } from "@/lib/money";
 import { ALLOWANCES, computePayslip, normalizeSlip } from "@/lib/payroll";
 import { printPayslip } from "@/lib/payroll-documents";
-import { isBatch, PAYOUT_METHODS, payoutAccount } from "@/lib/payouts";
+import { isBatch, payoutAccount } from "@/lib/payouts";
 import { inDays, ME } from "@/lib/team";
 import type { Asset } from "@/lib/types";
 import { selectWorkspaceName, useAppStore } from "@/stores/app-store";
@@ -54,6 +54,7 @@ import { AdvancesCard } from "./advances-card";
 import { AssetActions } from "./assets-page";
 import { DepartureDialog, printWorkCertificate } from "./departure-dialog";
 import { EmployeeDialog } from "./employee-dialog";
+import { PayoutName } from "./payout-logo";
 import { ApprovalRow, ContractBadge, EmployeeAvatar, FieldList, useTeam } from "./shared";
 
 const TABS = [
@@ -286,11 +287,14 @@ export function EmployeePage({ id }: { id: string }) {
                   ["Cost to the company", formatMoney(estimate.employerCost)],
                   [
                     "Paid by",
-                    !e.payout
-                      ? "Not set · paid by hand"
-                      : isBatch(e.payout.method)
-                        ? `${PAYOUT_METHODS[e.payout.method].label} · ${payoutAccount(e.payout.method, e.payout.account)}`
-                        : PAYOUT_METHODS[e.payout.method].label,
+                    !e.payout ? (
+                      "Not set · paid by hand"
+                    ) : (
+                      <span key="paid-by" className="inline-flex min-w-0 items-center gap-2">
+                        <PayoutName method={e.payout.method} />
+                        {isBatch(e.payout.method) ? <span className="text-fg-2 tabular-nums">· {payoutAccount(e.payout.method, e.payout.account)}</span> : null}
+                      </span>
+                    ),
                   ],
                   ["Carried-over leave", e.id === ME ? `${formatDays(s.carryover)} days (from their settings)` : `${formatDays(e.carryoverDays)} days`],
                 ]}

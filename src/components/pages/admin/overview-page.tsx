@@ -8,11 +8,12 @@ import { addDays, formatShort } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { computePayslip } from "@/lib/payroll";
 import { plural } from "@/lib/leave";
-import { hrAlerts, inDays, isOff } from "@/lib/team";
+import { departmentBreakdown, hrAlerts, inDays, isOff } from "@/lib/team";
 import { useAppStore, selectWorkspaceName } from "@/stores/app-store";
 import { openOverlay } from "@/stores/overlay-store";
 import { Card, CardHeader, EmptyState, PageHeader, PageRoot, StatGrid, StatTile } from "@/components/pages/shared/page-chrome";
 import { ApprovalRow, dateRange, EmployeeAvatar, useTeam } from "./shared";
+import { DepartmentChart } from "./department-chart";
 
 export function AdminOverviewPage() {
   const company = useAppStore(selectWorkspaceName);
@@ -30,6 +31,7 @@ export function AdminOverviewPage() {
     return { pending, offToday, away, permanent, payroll, alerts: hrAlerts(employees, today) };
   }, [requests, employees, today]);
 
+  const departments = useMemo(() => departmentBreakdown(employees), [employees]);
   const waitingPeople = new Set(data.pending.map((r) => r.employeeId)).size;
 
   return (
@@ -80,6 +82,7 @@ export function AdminOverviewPage() {
         </StatGrid>
 
         <div className="grid items-start gap-4 md:gap-5 xl:grid-cols-[1.4fr_1fr]">
+          <div className="grid gap-4 md:gap-5">
           <Card>
             <CardHeader
               title="Waiting for approval"
@@ -102,6 +105,21 @@ export function AdminOverviewPage() {
               </ul>
             )}
           </Card>
+          <Card>
+            <CardHeader
+              title="Team by department"
+              description={`${plural(departments.length, "department", "departments")} · headcount, with monthly gross pay`}
+              actions={
+                <Button variant="ghost" size="sm" asChild className="h-9 px-3">
+                  <Link href="/admin/employees">
+                    Employees <ArrowRightIcon />
+                  </Link>
+                </Button>
+              }
+            />
+            {departments.length ? <DepartmentChart slices={departments} total={employees.length} /> : <EmptyState icon={<InboxIcon />} title="No employees yet" hint="Add your first employee to see the team here." />}
+          </Card>
+          </div>
 
           <div className="grid gap-4 md:gap-5">
             <Card>
