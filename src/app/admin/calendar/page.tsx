@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { AbsencesPage } from "@/components/pages/admin/absences-page";
+import { TeamCalendarPage } from "@/components/pages/admin/team-calendar-page";
 
-export const metadata: Metadata = { title: "Absences" };
+export const metadata: Metadata = { title: "Calendar" };
 
 export default function Page() {
-  return <AbsencesPage />;
+  return <TeamCalendarPage />;
 }
