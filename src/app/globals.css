@@ -56,6 +56,16 @@
   /* Charts: Nuru + Sprout */
   --chart-1: var(--brand);
   --chart-2: var(--sprout);
+  /* Categorical series, in fixed order. Checked for colour-blind separation between neighbours
+     (the last wraps to the first, as in a pie) on this surface. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
 
   --event-green-bg: var(--mint);
   --event-green-fg: var(--nuru);
@@ -150,6 +160,15 @@
 
   --chart-1: var(--sprout);
   --chart-2: var(--mango);
+  /* The same eight hues, stepped for the dark surface */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #0ca30c;
+  --series-7: #9085e9;
+  --series-8: #e66767;
 
   --event-green-bg: #17463a;
   --event-green-fg: #a9e0cb;

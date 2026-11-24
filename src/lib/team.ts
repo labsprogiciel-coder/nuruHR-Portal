@@ -79,6 +79,44 @@ export function freezeRuns(runs: Record<string, PayrollRun>, team: Employee[]): 
   );
 }
 
+export type DepartmentSlice = { name: string; count: number; share: number; payroll: number; slot: number | null };
+
+/** How many colours the chart palette has; departments beyond it are grouped as "Other". */
+export const MAX_DEPARTMENT_SLICES = 8;
+
+/**
+ * Headcount and gross payroll by department, in alphabetical order so a department keeps its
+ * place and colour when the numbers change. With more departments than colours, the smallest
+ * ones are grouped into a final "Other" slice (slot null).
+ */
+export function departmentBreakdown(list: Pick<Employee, "department" | "monthlySalary" | "dependents" | "executive" | "allowances">[]): DepartmentSlice[] {
+  const by = new Map<string, { count: number; payroll: number }>();
+  for (const e of list) {
+    const name = e.department.trim() || "No department";
+    const d = by.get(name) ?? { count: 0, payroll: 0 };
+    by.set(name, { count: d.count + 1, payroll: d.payroll + computePayslip(e).gross });
+  }
+  const all = [...by.entries()].map(([name, d]) => ({ name, ...d }));
+  // Keep the largest when there are too many; ties go to the name that sorts first
+  const kept = new Set(
+    [...all]
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, all.length > MAX_DEPARTMENT_SLICES ? MAX_DEPARTMENT_SLICES - 1 : MAX_DEPARTMENT_SLICES)
+      .map((d) => d.name),
+  );
+  const total = list.length || 1;
+  const slices: DepartmentSlice[] = all
+    .filter((d) => kept.has(d.name))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((d, i) => ({ ...d, share: d.count / total, slot: i + 1 }));
+  const rest = all.filter((d) => !kept.has(d.name));
+  if (rest.length) {
+    const count = rest.reduce((n, d) => n + d.count, 0);
+    slices.push({ name: `Other (${rest.length} departments)`, count, share: count / total, payroll: rest.reduce((n, d) => n + d.payroll, 0), slot: null });
+  }
+  return slices;
+}
+
 /** "AO" for "Amina Ouédraogo": first letters of the first two words. */
 export function initialsOf(name: string) {
   return (
