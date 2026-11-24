@@ -79,7 +79,7 @@ export function dateRange(r: Pick<TeamRequest, "from" | "to">) {
 }
 
 /** What approving this request does to the employee's balance, per the Labour Code. */
-function balanceNote(r: TeamRequest, stats: LeaveStats | undefined) {
+export function balanceNote(r: TeamRequest, stats: LeaveStats | undefined) {
   if (r.type === "Sick") return "Not deducted · needs a medical certificate";
   if (r.type === "Maternity") return "Not deducted · 14 weeks";
   if (!stats) return null;
@@ -174,7 +174,7 @@ export function ApprovalRow({
  * A colleague's request in full, for HR: the whole note, exact dates and hours, when it was
  * sent, the effect on their balance and, once decided, the reason given.
  */
-function TeamRequestDialog({
+export function TeamRequestDialog({
   open,
   request: r,
   employee,
@@ -261,7 +261,7 @@ function TeamRequestDialog({
 }
 
 /** Declining asks for a reason, so the employee is told why and not only that it was refused. */
-function DeclineDialog({
+export function DeclineDialog({
   open,
   who,
   what,

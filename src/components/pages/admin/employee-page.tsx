@@ -12,6 +12,7 @@ import {
   PackageOpenIcon,
   PencilIcon,
   PhoneIcon,
+  PlusIcon,
   PrinterIcon,
   UndoIcon,
   UserXIcon,
@@ -48,6 +49,7 @@ import type { Asset } from "@/lib/types";
 import { selectWorkspaceName, useAppStore } from "@/stores/app-store";
 import { AssetRow, AssetStatusBadge, AssignAssetDialog, heldSince } from "@/components/assets/shared";
 import { Card, CardHeader, EmptyState, PageHeader, PageRoot, StatGrid, StatTile } from "@/components/pages/shared/page-chrome";
+import { AddLeaveDialog } from "./add-leave-dialog";
 import { AdvancesCard } from "./advances-card";
 import { AssetActions } from "./assets-page";
 import { DepartureDialog, printWorkCertificate } from "./departure-dialog";
@@ -73,6 +75,7 @@ export function EmployeePage({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [addingLeave, setAddingLeave] = useState(false);
   const assets = useMemo(() => allAssets.filter((a) => a.employeeId === id), [allAssets, id]);
   const [assigning, setAssigning] = useState<Asset | null>(null);
   const [tab, setTab] = useState<Tab>("info");
@@ -402,7 +405,15 @@ export function EmployeePage({ id }: { id: string }) {
               <StatTile icon="pending" label="Pending" value={pending} hint={pending ? `${plural(s.pendingDays, "day", "days")} held` : "Nothing to review"} />
             </StatGrid>
             <Card>
-              <CardHeader title="Requests" description={pending ? `${plural(pending, "request", "requests")} waiting for you` : "All requests this year and next"} />
+              <CardHeader
+                actions={
+                  left ? null : (
+                    <Button variant="ghost" size="sm" className="h-9 px-3" onClick={() => setAddingLeave(true)}>
+                      <PlusIcon /> Add leave
+                    </Button>
+                  )
+                }
+                title="Requests" description={pending ? `${plural(pending, "request", "requests")} waiting for you` : "All requests this year and next"} />
               {history.length === 0 ? (
                 <EmptyState icon={<CalendarX2Icon />} title="No leave yet" hint="Requests show up here as soon as they're submitted." />
               ) : (
@@ -416,6 +427,7 @@ export function EmployeePage({ id }: { id: string }) {
           </TabsContent>
         </Tabs>
       </div>
+      <AddLeaveDialog open={addingLeave} employee={e} employees={employees} requests={requests} stats={stats} today={today} onClose={() => setAddingLeave(false)} />
       <AssignAssetDialog asset={assigning} employees={employees} onClose={() => setAssigning(null)} />
       <EmployeeDialog open={editing} employee={e} team={everyone} onClose={() => setEditing(false)} />
       <AlertDialog open={cancelling && !!e.departure} onOpenChange={(v) => !v && setCancelling(false)}>

@@ -112,4 +112,23 @@ describe("guards", () => {
     expect(state().requests.find((r) => r.id === "rq-6")!.declineReason).toBe("Project deadline");
     expect(state().notifications[0].body).toContain("Reason: Project deadline");
   });
+
+  it("lets HR record approved leave for someone, without double-booking them", () => {
+    const before = state().teamRequests.length;
+    expect(state().recordLeave("emp-boukary", { type: "Annual leave", from: "2027-05-03", to: "2027-05-07", notes: "" })).toBe(true);
+    const added = state().teamRequests[0];
+    expect(state().teamRequests.length).toBe(before + 1);
+    expect(added).toMatchObject({ employeeId: "emp-boukary", status: "approved", allDay: true, from: "2027-05-03", to: "2027-05-07" });
+    expect(added.days).toBeGreaterThan(0);
+    // Overlapping dates, a weekend only, and an unknown person are refused
+    expect(state().recordLeave("emp-boukary", { type: "Sick", from: "2027-05-07", to: "2027-05-10", notes: "" })).toBe(false);
+    expect(state().recordLeave("emp-boukary", { type: "Sick", from: "2027-05-08", to: "2027-05-09", notes: "" })).toBe(false);
+    expect(state().recordLeave("nobody", { type: "Sick", from: "2027-06-01", to: "2027-06-01", notes: "" })).toBe(false);
+    expect(state().teamRequests.length).toBe(before + 1);
+    // The signed-in person's own leave goes to their requests and their calendar
+    const events = state().events.length;
+    expect(state().recordLeave("emp-me", { type: "Sick", from: "2027-06-01", to: "2027-06-02", notes: "Flu" })).toBe(true);
+    expect(state().requests[0]).toMatchObject({ status: "approved", notes: "Flu" });
+    expect(state().events.length).toBe(events + 2);
+  });
 });

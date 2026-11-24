@@ -89,6 +89,12 @@ type Actions = {
   cancelDeparture: (id: string) => void;
   /** Admin: approve or decline anyone's request (the user's own go through setRequestStatus). */
   reviewRequest: (id: string, status: "approved" | "declined", reason?: string) => void;
+  /**
+   * HR: record full days of leave for someone, already approved (a paper form, a phone call,
+   * staff without the app). Returns false, changing nothing, when the dates are empty or
+   * clash with leave they already have.
+   */
+  recordLeave: (employeeId: string, input: { type: LeaveType; from: string; to: string; notes: string }) => boolean;
   addHoliday: (date: string, name: string) => void;
   removeHoliday: (id: string) => void;
   // notifications
@@ -455,6 +461,33 @@ export const useAppStore = create<AppStore>()(
         };
         if (status === "approved") toast.success("Request approved", { description, action: undoReview });
         else toast.error("Request declined", { description, action: undoReview });
+      },
+      recordLeave: (employeeId, input) => {
+        const s = get();
+        const employee = s.team.find((e) => e.id === employeeId);
+        if (!employee || !input.from || input.to < input.from) return false;
+        const own = employeeId === ME;
+        const existing = own ? s.requests : s.teamRequests.filter((r) => r.employeeId === employeeId);
+        const days = countedDays(input.type, input.from, input.to, s.holidays).length;
+        if (!days || overlappingRequest(existing, { ...input, allDay: true })) return false;
+        const req: LeaveRequest = {
+          id: uid("rq"),
+          status: "approved",
+          type: input.type,
+          duration: durationLabel(days, 0),
+          days,
+          from: input.from,
+          to: input.to,
+          allDay: true,
+          notes: input.notes.trim() || `${input.type} · recorded by HR`,
+          submittedAt: new Date().toISOString(),
+        };
+        // The signed-in person's own leave also shows on their calendar
+        if (own) set((st) => ({ requests: [req, ...st.requests], events: [...st.events, ...eventsForRequest(req)] }));
+        else set((st) => ({ teamRequests: [{ ...req, employeeId }, ...st.teamRequests] }));
+        const name = own ? s.profile.name : employee.name;
+        toast.success("Leave recorded", { description: `${name} · ${req.type} · ${whenLabel(req.from, req.to)}` });
+        return true;
       },
       validatePayroll: (month, lines) => {
         // Months close in order (see nextMonthToValidate)
