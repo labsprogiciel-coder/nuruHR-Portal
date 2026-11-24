@@ -45,6 +45,7 @@ import {
   type Payslip,
 } from "@/lib/payroll";
 import { cnssDeclarationRows, downloadCsv, iutsDeclarationRows, printPayslip } from "@/lib/payroll-documents";
+import { batchFileName, batchFileRows, isBatch, missingPayout, PAYOUT_METHODS, payoutBatches, type PayoutBatch } from "@/lib/payouts";
 import { employedIn, monthShare } from "@/lib/team";
 import type { Employee, PayrollInput, PayrollRun } from "@/lib/types";
 import { selectWorkspaceName, useAppStore } from "@/stores/app-store";
@@ -87,7 +88,8 @@ export function PayrollPage() {
   const [open, setOpen] = useState<Employee | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   // Validating freezes the payslips and paying can't be reopened, so both ask first
-  const [confirming, setConfirming] = useState<"validate" | "pay" | null>(null);
+  const [confirming, setConfirming] = useState<"validate" | null>(null);
+  const [paying, setPaying] = useState(false);
 
   const current = month ?? today.slice(0, 7);
   const run: PayrollRun | undefined = runs[current];
@@ -122,6 +124,9 @@ export function PayrollPage() {
   const nextToValidate = nextMonthToValidate(runs);
   const canValidate = canValidateMonth(runs, current);
   const canReopen = canReopenMonth(runs, current);
+  // Salaries grouped by how each person is paid: one payment file per provider
+  const batches = useMemo(() => payoutBatches(staff, lines), [staff, lines]);
+  const downloadBatch = (b: PayoutBatch) => downloadCsv(batchFileName(b.method, current), batchFileRows(b, current, company));
   const step = (n: number) => setMonth(addMonths(current + "-01", n).slice(0, 7));
 
   const exportPayroll = () =>
@@ -146,7 +151,9 @@ export function PayrollPage() {
         }
         description={
           status === "paid" && run?.paidAt
-            ? `Paid on ${formatLong(run.paidAt.slice(0, 10))} · ${plural(staff.length, "employee", "employees")}`
+            ? `Paid on ${formatLong(run.paidAt.slice(0, 10))} · ${plural(staff.length, "employee", "employees")}${
+                run.payments?.length ? ` · ${run.payments.map((x) => PAYOUT_METHODS[x.method].label).join(", ")}` : ""
+              }`
             : status === "validated"
               ? `Validated on ${formatLong(run!.validatedAt.slice(0, 10))}, ready to pay`
               : !canValidate && nextToValidate
@@ -176,6 +183,14 @@ export function PayrollPage() {
                 <DropdownMenuItem onSelect={() => downloadCsv(`declaration-iuts-${current}.csv`, iutsDeclarationRows(staff, lines))}>
                   IUTS declaration (CSV)
                 </DropdownMenuItem>
+                {batches.some((b) => isBatch(b.method)) ? <DropdownMenuSeparator /> : null}
+                {batches
+                  .filter((b) => isBatch(b.method))
+                  .map((b) => (
+                    <DropdownMenuItem key={b.method} onSelect={() => downloadBatch(b)}>
+                      {PAYOUT_METHODS[b.method].label} payment file (CSV)
+                    </DropdownMenuItem>
+                  ))}
               </DropdownMenuContent>
             </DropdownMenu>
             {status === "draft" ? (
@@ -189,8 +204,8 @@ export function PayrollPage() {
                     <RotateCcwIcon /> Reopen
                   </Button>
                 ) : null}
-                <Button variant="brand" onClick={() => setConfirming("pay")}>
-                  <BanknoteIcon /> Mark as paid
+                <Button variant="brand" onClick={() => setPaying(true)}>
+                  <BanknoteIcon /> Pay salaries
                 </Button>
               </>
             ) : null}
@@ -292,29 +307,148 @@ export function PayrollPage() {
       <AlertDialog open={!!confirming} onOpenChange={(v) => !v && setConfirming(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="t-16">
-              {confirming === "pay" ? `Mark ${monthLabel(current)} as paid?` : `Validate ${monthLabel(current)} payroll?`}
-            </AlertDialogTitle>
+            <AlertDialogTitle className="t-16">Validate {monthLabel(current)} payroll?</AlertDialogTitle>
             <AlertDialogDescription className="t-14 leading-[1.4]">
               {formatMoney(totals.toPay)} to {plural(staff.length, "employee", "employees")}
-              {totals.advance ? `, after ${formatMoney(totals.advance)} of advances withheld` : ""}.{" "}
-              {confirming === "pay"
-                ? "This records the salaries as paid and adds your own payslip to Documents. A paid month can't be reopened."
-                : "The payslips are frozen as they are now. You can reopen the month until it's marked as paid."}
+              {totals.advance ? `, after ${formatMoney(totals.advance)} of advances withheld` : ""}. The payslips are frozen as they are now. You can
+              reopen the month until it&rsquo;s marked as paid.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="brand"
-              onClick={() => (confirming === "pay" ? markPaid(current) : validate(current, lines))}
-            >
-              {confirming === "pay" ? "Mark as paid" : "Validate payroll"}
+            <AlertDialogAction variant="brand" onClick={() => validate(current, lines)}>
+              Validate payroll
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <PayDialog
+        open={paying && status === "validated"}
+        month={current}
+        batches={batches}
+        missing={missingPayout(staff, lines)}
+        total={totals.toPay}
+        advance={totals.advance}
+        onDownload={downloadBatch}
+        onClose={() => setPaying(false)}
+        onPaid={() => markPaid(current, batches.map((b) => ({ method: b.method, employees: b.lines.length, total: b.total })))}
+      />
     </PageRoot>
+  );
+}
+
+/**
+ * Pay a validated month: the salaries grouped by payment method, a payment file to upload for
+ * each provider, then the confirmation that records the month as paid. The app prepares the
+ * files; the money is sent from the provider's own business portal or the bank.
+ */
+function PayDialog({
+  open,
+  month,
+  batches,
+  missing,
+  total,
+  advance,
+  onDownload,
+  onClose,
+  onPaid,
+}: {
+  open: boolean;
+  month: string;
+  batches: PayoutBatch[];
+  missing: Employee[];
+  total: number;
+  advance: number;
+  onDownload: (b: PayoutBatch) => void;
+  onClose: () => void;
+  onPaid: () => void;
+}) {
+  const [downloaded, setDownloaded] = useState<Set<string>>(new Set());
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setDownloaded(new Set());
+  }
+  const files = batches.filter((b) => isBatch(b.method));
+  const pendingFiles = files.filter((b) => !downloaded.has(b.method)).length;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] gap-4 overflow-y-auto p-5 sm:max-w-[540px]">
+        <DialogHeader className="gap-1.5">
+          <DialogTitle className="t-16">Pay {monthLabel(month)} salaries</DialogTitle>
+          <DialogDescription className="t-14 leading-[1.4]">
+            {formatMoney(total)} in all{advance ? `, after ${formatMoney(advance)} of advances withheld` : ""}. Download each payment file and
+            upload it to that provider&rsquo;s bulk payment page, then mark the month as paid.
+          </DialogDescription>
+        </DialogHeader>
+
+        <ul className="divide-y divide-subtle overflow-hidden rounded-lg border border-hairline">
+          {batches.map((b) => (
+            <li key={b.method} className="flex items-center gap-3 px-3 py-2.5">
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="t-14 text-fg">{PAYOUT_METHODS[b.method].label}</span>
+                <span className="t-12 truncate text-fg-2">
+                  {plural(b.lines.length, "employee", "employees")} · {b.lines.map((l) => l.employee.name.split(" ")[0]).join(", ")}
+                </span>
+              </span>
+              <span className="t-14 shrink-0 text-right tabular-nums">{formatMoney(b.total)}</span>
+              {isBatch(b.method) ? (
+                <Button
+                  size="sm"
+                  className="h-9 w-[104px] shrink-0"
+                  aria-label={`Download the ${PAYOUT_METHODS[b.method].label} payment file`}
+                  onClick={() => {
+                    onDownload(b);
+                    setDownloaded((s) => new Set(s).add(b.method));
+                  }}
+                >
+                  {downloaded.has(b.method) ? <CheckIcon /> : <DownloadIcon />} {downloaded.has(b.method) ? "Saved" : "File"}
+                </Button>
+              ) : (
+                <span className="t-12 w-[104px] shrink-0 text-right text-fg-2">By hand</span>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        {missing.length ? (
+          <p className="t-12 flex items-start gap-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-tint)] px-3 py-2.5 leading-[1.45] text-fg">
+            <InfoIcon className="mt-px size-3.5 shrink-0 text-[var(--status-warning)]" />
+            <span>
+              {missing.map((e) => e.name).join(", ")} {missing.length === 1 ? "has" : "have"} no payment details on file, so they are
+              listed under cash. Add a number in their employee file to include them in a
+              payment file next month.
+            </span>
+          </p>
+        ) : null}
+        <p className="t-12 leading-[1.4] text-fg-2">
+          Each file lists the number or account, the amount, the name and a reference. Providers use their own upload templates, so the column
+          names may need adjusting; check the first upload against the provider&rsquo;s template.
+        </p>
+
+        <DialogFooter className="-mx-5 -mb-5 items-center bg-app px-5 py-3">
+          {pendingFiles ? (
+            <span className="t-12 text-fg-2 sm:mr-auto">
+              {pendingFiles} {pendingFiles === 1 ? "file" : "files"} not downloaded yet
+            </span>
+          ) : null}
+          <Button type="button" onClick={onClose}>
+            Not yet
+          </Button>
+          <Button
+            type="button"
+            variant="brand"
+            onClick={() => {
+              onPaid();
+              onClose();
+            }}
+          >
+            <BanknoteIcon /> Mark as paid
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

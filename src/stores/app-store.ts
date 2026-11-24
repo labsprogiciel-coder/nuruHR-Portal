@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { formatShort, monthName, rangeKeys, toKey } from "@/lib/dates";
 import { countedDays, durationLabel, LEAVE_COLORS, overlappingRequest, WORKDAY_MINUTES } from "@/lib/leave";
-import { createSeed, STATE_VERSION } from "@/lib/seed";
+import { createSeed, STATE_VERSION, withSeedPayouts } from "@/lib/seed";
 import { advanceSchedule, canReopenMonth, canValidateMonth, lastRepaymentMonth, repaidBefore, type Payslip } from "@/lib/payroll";
 import { freezeRuns, initialsOf, ME } from "@/lib/team";
 import type {
@@ -23,6 +23,7 @@ import type {
   LeaveStatus,
   LeaveType,
   PayrollInput,
+  PayrollRun,
   Profile,
   Settings,
   TimeEntry,
@@ -70,7 +71,7 @@ type Actions = {
   /** Back to draft, before it's paid. */
   reopenPayroll: (month: string) => void;
   /** Record salaries as paid; the signed-in employee gets their payslip in Documents. */
-  markPayrollPaid: (month: string) => void;
+  markPayrollPaid: (month: string, payments?: PayrollRun["payments"]) => void;
   // equipment
   addAsset: (asset: Omit<Asset, "id" | "status" | "assignedOn" | "employeeId" | "issue">) => void;
   /** Hand an asset to someone, or return it to stock (null). */
@@ -502,13 +503,13 @@ export const useAppStore = create<AppStore>()(
           return { payrollRuns: runs };
         });
       },
-      markPayrollPaid: (month) => {
+      markPayrollPaid: (month, payments) => {
         const run = get().payrollRuns[month];
         if (!run) return;
         const label = `${monthName(month + "-01")} ${month.slice(0, 4)}`;
         const now = new Date().toISOString();
         set((s) => ({
-          payrollRuns: { ...s.payrollRuns, [month]: { ...run, status: "paid", paidAt: now } },
+          payrollRuns: { ...s.payrollRuns, [month]: { ...run, status: "paid", paidAt: now, payments } },
           documents: [
             { id: uid("doc"), name: `Payslip – ${label}.pdf`, category: "Payslip", size: 120_000, uploadedAt: now },
             ...s.documents,
@@ -736,12 +737,14 @@ export const useAppStore = create<AppStore>()(
       storage: createJSONStorage(() => safeLocalStorage),
       // Hydrate after mount so the server-rendered markup (the seed) matches.
       skipHydration: true,
-      // Every older version gets the v8 payroll additions (no monthly inputs, no advances) and
-      // v9's frozen payslips for closed months that were saved without any.
+      // Every older version gets the v8 payroll additions (no monthly inputs, no advances),
+      // v9's frozen payslips for closed months that were saved without any, and v10's payout
+      // details for the demo team.
       migrate: (persisted, version) => {
         const next: Partial<AppState> = migrateBefore8(persisted as AppState, version);
         return {
           ...next,
+          team: version < 10 ? withSeedPayouts(next.team ?? []) : next.team,
           payrollInputs: next.payrollInputs ?? {},
           advances: next.advances ?? [],
           payrollRuns: freezeRuns(next.payrollRuns ?? {}, next.team ?? []),

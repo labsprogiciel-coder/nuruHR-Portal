@@ -6,7 +6,8 @@ const pct = (n: number) => `${String(Math.round(n * 1000) / 10).replace(".", ","
 
 /** A CSV file the browser downloads. Text that a spreadsheet would run as a formula is neutralised. */
 export function downloadCsv(filename: string, rows: (string | number)[][]) {
-  const cell = (v: string | number) => (typeof v === "string" && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v));
+  // A phone number in international form ("+22670123456") is only digits, so it stays as it is
+  const cell = (v: string | number) => (typeof v === "string" && /^[=+\-@\t\r]/.test(v) && !/^\+\d+$/.test(v) ? `'${v}` : String(v));
   const csv = rows.map((r) => r.map((v) => `"${cell(v).replace(/"/g, '""')}"`).join(",")).join("\n");
   // The byte-order mark makes Excel read the file as UTF-8, so French accents survive
   const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));

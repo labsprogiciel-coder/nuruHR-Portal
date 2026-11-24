@@ -7,14 +7,31 @@ export const DESIGN_DATE = "2026-11-10";
 /** Used only for server rendering; the browser swaps in the real date on hydration. */
 export const SERVER_TODAY = "2026-10-26";
 
-export const STATE_VERSION = 9;
+export const STATE_VERSION = 10;
 
 const h = (hours: number, minutes = 0) => hours * 60 + minutes;
+
+/**
+ * How the demo team is paid. Yacouba has nothing on file, so the payroll screen has someone
+ * to flag as "to pay by hand".
+ */
+export const SEED_PAYOUTS: Record<string, NonNullable<Employee["payout"]>> = {
+  "emp-me": { method: "wave", account: "+226 70 12 34 56" },
+  "emp-mariam": { method: "bank", account: "BF042 01001 000123456789 55" },
+  "emp-issouf": { method: "bank", account: "BF084 01203 004567891234 12" },
+  "emp-boukary": { method: "wave", account: "+226 76 48 20 15" },
+  "emp-salimata": { method: "pi-spi", account: "+226 65 30 77 42" },
+  "emp-ousmane": { method: "orange-money", account: "+226 07 55 21 40" },
+  "emp-rasmata": { method: "orange-money", account: "+226 54 18 96 03" },
+};
+
+/** Adds the demo payout details to employees that have none on file. */
+export const withSeedPayouts = (team: Employee[]) => team.map((e) => (e.payout || !SEED_PAYOUTS[e.id] ? e : { ...e, payout: SEED_PAYOUTS[e.id] }));
 
 export function createSeed(): AppState {
   const seed = seedData();
   // September and October are closed: their payslips are frozen like any validated month.
-  return { ...seed, payrollRuns: freezeRuns(seed.payrollRuns, seed.team) };
+  return { ...seed, team: withSeedPayouts(seed.team), payrollRuns: freezeRuns(seed.payrollRuns, seed.team) };
 }
 
 function seedData(): AppState {

@@ -42,6 +42,7 @@ import { formatDays, plural } from "@/lib/leave";
 import { formatMoney } from "@/lib/money";
 import { ALLOWANCES, computePayslip, normalizeSlip } from "@/lib/payroll";
 import { printPayslip } from "@/lib/payroll-documents";
+import { isBatch, PAYOUT_METHODS, payoutAccount } from "@/lib/payouts";
 import { inDays, ME } from "@/lib/team";
 import type { Asset } from "@/lib/types";
 import { selectWorkspaceName, useAppStore } from "@/stores/app-store";
@@ -280,6 +281,14 @@ export function EmployeePage({ id }: { id: string }) {
                   ["Gross", formatMoney(estimate.gross)],
                   ["Net, estimate", `${formatMoney(estimate.net)} · after CNSS and IUTS`],
                   ["Cost to the company", formatMoney(estimate.employerCost)],
+                  [
+                    "Paid by",
+                    !e.payout
+                      ? "Not set · paid by hand"
+                      : isBatch(e.payout.method)
+                        ? `${PAYOUT_METHODS[e.payout.method].label} · ${payoutAccount(e.payout.method, e.payout.account)}`
+                        : PAYOUT_METHODS[e.payout.method].label,
+                  ],
                   ["Carried-over leave", e.id === ME ? `${formatDays(s.carryover)} days (from their settings)` : `${formatDays(e.carryoverDays)} days`],
                 ]}
               />

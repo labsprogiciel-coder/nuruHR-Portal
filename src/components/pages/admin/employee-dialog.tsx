@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatMoney } from "@/lib/money";
 import { ALLOWANCES, computePayslip } from "@/lib/payroll";
+import { isBatch, PAYOUT_METHODS, PAYOUT_ORDER, payoutError } from "@/lib/payouts";
 import { ME } from "@/lib/team";
-import type { AllowanceKind, ContractType, Employee } from "@/lib/types";
+import type { AllowanceKind, ContractType, Employee, PayoutMethod } from "@/lib/types";
 import { useToday } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
 
@@ -40,6 +41,8 @@ type Draft = {
   cnssNumber: string;
   carryoverDays: string;
   allowances: Record<AllowanceKind, string>;
+  payoutMethod: PayoutMethod;
+  payoutAccount: string;
 };
 
 function toDraft(e: Employee | undefined, today: string): Draft {
@@ -61,6 +64,8 @@ function toDraft(e: Employee | undefined, today: string): Draft {
     cnssNumber: e?.cnssNumber ?? "",
     carryoverDays: String(e?.carryoverDays ?? 0),
     allowances: Object.fromEntries(ALLOWANCES.map((a) => [a.kind, e?.allowances?.[a.kind] ? String(e.allowances[a.kind]) : ""])) as Record<AllowanceKind, string>,
+    payoutMethod: e?.payout?.method ?? "cash",
+    payoutAccount: e?.payout?.account ?? "",
   };
 }
 
@@ -106,6 +111,7 @@ function problems(d: Draft) {
     allowances: Object.values(d.allowances).every((v) => !v || (Number.isInteger(Number(v)) && Number(v) >= 0))
       ? null
       : "Allowances are whole amounts in FCFA.",
+    payoutAccount: payoutError(d.payoutMethod, d.payoutAccount),
   };
 }
 
@@ -191,6 +197,7 @@ export function EmployeeDialog({
       cnssNumber: draft.cnssNumber.trim(),
       carryoverDays: Number(draft.carryoverDays),
       allowances: parseAllowances(draft.allowances),
+      payout: { method: draft.payoutMethod, account: isBatch(draft.payoutMethod) ? draft.payoutAccount.trim() : "" },
     };
     if (employee) {
       update(employee.id, record);
@@ -377,6 +384,41 @@ export function EmployeeDialog({
                 {err("allowances")}
               </p>
             ) : null}
+          </fieldset>
+
+          <fieldset className="grid gap-4">
+            <legend className="t-14 mb-1 font-medium text-fg">Salary payment</legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Paid by" htmlFor="emp-payout">
+                <Select value={draft.payoutMethod} onValueChange={(v) => set("payoutMethod", v as PayoutMethod)}>
+                  <SelectTrigger id="emp-payout" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYOUT_ORDER.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {PAYOUT_METHODS[m].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              {isBatch(draft.payoutMethod) ? (
+                <Field label={PAYOUT_METHODS[draft.payoutMethod].accountLabel} htmlFor="emp-payout-account" error={err("payoutAccount")}>
+                  <Input
+                    id="emp-payout-account"
+                    className="tabular-nums"
+                    inputMode={PAYOUT_METHODS[draft.payoutMethod].kind === "mobile" ? "tel" : undefined}
+                    placeholder={PAYOUT_METHODS[draft.payoutMethod].placeholder}
+                    value={draft.payoutAccount}
+                    onChange={(e) => set("payoutAccount", e.target.value)}
+                    aria-invalid={!!err("payoutAccount")}
+                  />
+                </Field>
+              ) : (
+                <p className="t-12 self-end pb-2 leading-[1.4] text-fg-2">Paid by hand, outside the batch payment files.</p>
+              )}
+            </div>
           </fieldset>
 
           <datalist id="emp-depts">
