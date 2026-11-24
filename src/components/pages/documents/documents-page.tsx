@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import {
   DownloadIcon,
+  EyeIcon,
   FileIcon,
   FileImageIcon,
   FileSpreadsheetIcon,
@@ -54,9 +55,8 @@ import { useIsMobile } from "@/hooks/use-media-query";
 import { useToday } from "@/hooks/use-today";
 import { useAppStore } from "@/stores/app-store";
 import { EmptyState, PageHeader, PageRoot } from "@/components/pages/shared/page-chrome";
-
-const CATEGORIES: DocCategory[] = ["Contract", "Payslip", "Policy", "Medical", "Tax", "Other"];
-const MAX_INLINE_BYTES = 1.5 * 1024 * 1024;
+import { PreviewDialog, UploadDialog } from "./document-dialogs";
+import { CATEGORIES, downloadDoc, formatSize } from "./document-utils";
 
 const CATEGORY_COLOR: Record<DocCategory, string | null> = {
   Contract: "purple",
@@ -77,48 +77,9 @@ const SORTS: { value: Sort; label: string }[] = [
   { value: "size", label: "Size" },
 ];
 
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function splitName(name: string): [string, string] {
   const i = name.lastIndexOf(".");
   return i > 0 ? [name.slice(0, i), name.slice(i)] : [name, ""];
-}
-
-/** Best-guess category from the file name; falls back to the active filter. */
-function guessCategory(name: string, fallback: DocCategory): DocCategory {
-  const n = name.toLowerCase();
-  if (/payslip|pay slip|salary|wage/.test(n)) return "Payslip";
-  if (/contract|agreement|offer|nda/.test(n)) return "Contract";
-  if (/policy|handbook|guideline/.test(n)) return "Policy";
-  if (/medical|certificate|sick|doctor|health/.test(n)) return "Medical";
-  if (/tax|fiscal|impot|impôt|iuts|p60|w-?2|1099|invoice|facture/.test(n)) return "Tax";
-  return fallback;
-}
-
-function readAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
-
-function downloadDoc(doc: DocumentFile) {
-  if (!doc.dataUrl) {
-    toast("This is a demo file", { description: `“${doc.name}” has no content attached — upload your own to download it.` });
-    return;
-  }
-  const a = document.createElement("a");
-  a.href = doc.dataUrl;
-  a.download = doc.name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
 }
 
 function DocGlyph({ name, className }: { name: string; className?: string }) {
@@ -152,7 +113,6 @@ function CategoryBadge({ category }: { category: DocCategory }) {
 export function DocumentsPage() {
   const today = useToday();
   const documents = useAppStore((s) => s.documents);
-  const addDocument = useAppStore((s) => s.addDocument);
 
   const isMobile = useIsMobile();
   const [query, setQuery] = useState("");
@@ -160,6 +120,10 @@ export function DocumentsPage() {
   const [sort, setSort] = useState<Sort>("newest");
   const [view, setView] = useState<"list" | "grid">("list");
   const [renaming, setRenaming] = useState<DocumentFile | null>(null);
+  // Files chosen or dropped wait in the upload dialog; a clicked document opens in the preview
+  const [pending, setPending] = useState<File[] | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const previewing = documents.find((d) => d.id === previewId) ?? null;
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -188,37 +152,11 @@ export function DocumentsPage() {
 
   const totalSize = useMemo(() => documents.reduce((a, d) => a + d.size, 0), [documents]);
 
-  async function upload(files: FileList | File[]) {
+  const upload = (files: FileList | File[]) => {
     const list = Array.from(files);
-    if (!list.length) return;
-    const fallback: DocCategory = filter !== "all" && filter !== "starred" ? filter : "Other";
-    let metadataOnly = 0;
-    for (const file of list) {
-      const category = guessCategory(file.name, fallback);
-      let dataUrl: string | undefined;
-      if (file.size <= MAX_INLINE_BYTES) {
-        try {
-          dataUrl = await readAsDataUrl(file);
-        } catch {
-          dataUrl = undefined;
-        }
-      }
-      if (!dataUrl) metadataOnly += 1;
-      addDocument({ name: file.name, category, size: file.size, dataUrl, starred: false });
-    }
-    toast.success(list.length === 1 ? "Document uploaded" : `${list.length} documents uploaded`, {
-      description:
-        list.length === 1 ? `${list[0].name} · ${guessCategory(list[0].name, fallback)}` : "Filed by name — move them any time.",
-    });
-    if (metadataOnly) {
-      toast(metadataOnly === 1 ? "Large file saved as details only" : `${metadataOnly} large files saved as details only`, {
-        description: "Files over 1.5 MB aren’t stored in this browser demo, so they can’t be downloaded.",
-      });
-    }
-    // Make sure the new uploads are visible.
-    setQuery("");
-    if (filter === "starred") setFilter("all");
-  }
+    if (list.length) setPending(list);
+  };
+  const uploadFallback: DocCategory = filter !== "all" && filter !== "starred" ? filter : "Other";
 
   const hasFilters = query.trim() !== "" || filter !== "all";
 
@@ -267,7 +205,7 @@ export function DocumentsPage() {
         e.preventDefault();
         dragDepth.current = 0;
         setDragging(false);
-        if (e.dataTransfer.files.length) void upload(e.dataTransfer.files);
+        if (e.dataTransfer.files.length) upload(e.dataTransfer.files);
       }}
     >
       <input
@@ -276,7 +214,7 @@ export function DocumentsPage() {
         multiple
         hidden
         onChange={(e) => {
-          if (e.target.files) void upload(e.target.files);
+          if (e.target.files) upload(e.target.files);
           e.target.value = "";
         }}
       />
@@ -403,11 +341,11 @@ export function DocumentsPage() {
         />
       ) : view === "list" ? (
         <>
-          <DocumentTable docs={visible} today={today} onRename={setRenaming} />
-          <DocumentList docs={visible} today={today} onRename={setRenaming} />
+          <DocumentTable docs={visible} today={today} onRename={setRenaming} onOpen={setPreviewId} />
+          <DocumentList docs={visible} today={today} onRename={setRenaming} onOpen={setPreviewId} />
         </>
       ) : (
-        <DocumentGrid docs={visible} today={today} onRename={setRenaming} />
+        <DocumentGrid docs={visible} today={today} onRename={setRenaming} onOpen={setPreviewId} />
       )}
 
       {dragging ? (
@@ -419,6 +357,17 @@ export function DocumentsPage() {
       ) : null}
 
       <RenameDialog doc={renaming} onClose={() => setRenaming(null)} />
+      <PreviewDialog doc={previewing} onClose={() => setPreviewId(null)} />
+      <UploadDialog
+        files={pending}
+        fallback={uploadFallback}
+        onClose={() => setPending(null)}
+        onUploaded={() => {
+          // Make sure the new uploads are visible.
+          setQuery("");
+          if (filter === "starred") setFilter("all");
+        }}
+      />
     </PageRoot>
   );
 }
@@ -456,10 +405,12 @@ const MENU_ITEM = "max-md:min-h-10";
 function RowMenu({
   doc,
   onRename,
+  onOpen,
   className,
 }: {
   doc: DocumentFile;
   onRename: (d: DocumentFile) => void;
+  onOpen: (id: string) => void;
   className?: string;
 }) {
   const updateDocument = useAppStore((s) => s.updateDocument);
@@ -478,6 +429,9 @@ function RowMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem className={MENU_ITEM} onSelect={() => onOpen(doc.id)}>
+          <EyeIcon /> Preview
+        </DropdownMenuItem>
         <DropdownMenuItem className={MENU_ITEM} onSelect={() => downloadDoc(doc)}>
           <DownloadIcon /> Download
         </DropdownMenuItem>
@@ -513,9 +467,9 @@ function RowMenu({
   );
 }
 
-type ViewProps = { docs: DocumentFile[]; today: string; onRename: (d: DocumentFile) => void };
+type ViewProps = { docs: DocumentFile[]; today: string; onRename: (d: DocumentFile) => void; onOpen: (id: string) => void };
 
-function DocumentTable({ docs, today, onRename }: ViewProps) {
+function DocumentTable({ docs, today, onRename, onOpen }: ViewProps) {
   return (
     <table className="w-full table-fixed border-collapse max-md:hidden">
       <thead>
@@ -533,7 +487,7 @@ function DocumentTable({ docs, today, onRename }: ViewProps) {
         {docs.map((d) => (
           <tr
             key={d.id}
-            onDoubleClick={() => downloadDoc(d)}
+            onDoubleClick={() => onOpen(d.id)}
             className="group h-14 border-b border-subtle transition-colors duration-150 hover-fine:bg-hover"
           >
             <td className="pl-4">
@@ -541,9 +495,14 @@ function DocumentTable({ docs, today, onRename }: ViewProps) {
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-app text-icon">
                   <DocGlyph name={d.name} className="size-4" />
                 </span>
-                <span className="t-14 min-w-0 truncate text-table" title={d.name}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(d.id)}
+                  title={d.name}
+                  className="t-14 min-w-0 truncate text-left text-table outline-none hover-fine:underline focus-visible:underline"
+                >
                   {d.name}
-                </span>
+                </button>
                 {d.starred ? <StarIcon className="size-3 shrink-0 fill-current text-warning" aria-label="Starred" /> : null}
               </div>
             </td>
@@ -563,7 +522,7 @@ function DocumentTable({ docs, today, onRename }: ViewProps) {
                   </TooltipTrigger>
                   <TooltipContent>{d.dataUrl ? "Download" : "Demo file"}</TooltipContent>
                 </Tooltip>
-                <RowMenu doc={d} onRename={onRename} />
+                <RowMenu doc={d} onRename={onRename} onOpen={onOpen} />
               </div>
             </td>
           </tr>
@@ -574,14 +533,14 @@ function DocumentTable({ docs, today, onRename }: ViewProps) {
 }
 
 /** Phones: the table becomes a list — tap a row to open the file, star and menu stay visible. */
-function DocumentList({ docs, today, onRename }: ViewProps) {
+function DocumentList({ docs, today, onRename, onOpen }: ViewProps) {
   return (
     <ul className="divide-y divide-subtle border-b border-subtle md:hidden">
       {docs.map((d) => (
         <li key={d.id} className="flex items-center pr-2">
           <button
             type="button"
-            onClick={() => downloadDoc(d)}
+            onClick={() => onOpen(d.id)}
             className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 text-left outline-none transition-colors duration-150 focus-visible:bg-hover active:bg-hover"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-app text-icon">
@@ -598,14 +557,14 @@ function DocumentList({ docs, today, onRename }: ViewProps) {
             </span>
           </button>
           <StarButton doc={d} className="size-10" />
-          <RowMenu doc={d} onRename={onRename} className="size-10" />
+          <RowMenu doc={d} onRename={onRename} onOpen={onOpen} className="size-10" />
         </li>
       ))}
     </ul>
   );
 }
 
-function DocumentGrid({ docs, today, onRename }: ViewProps) {
+function DocumentGrid({ docs, today, onRename, onOpen }: ViewProps) {
   return (
     <ul className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
       {docs.map((d) => (
@@ -615,9 +574,9 @@ function DocumentGrid({ docs, today, onRename }: ViewProps) {
         >
           <button
             type="button"
-            onClick={() => downloadDoc(d)}
+            onClick={() => onOpen(d.id)}
             className="flex h-24 items-center justify-center bg-app text-icon outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-inset"
-            aria-label={`Download ${d.name}`}
+            aria-label={`Preview ${d.name}`}
           >
             <DocGlyph name={d.name} className="size-7" />
           </button>
@@ -633,7 +592,7 @@ function DocumentGrid({ docs, today, onRename }: ViewProps) {
             </div>
             <div className="-mt-1 flex flex-col">
               <StarButton doc={d} className="size-9" />
-              <RowMenu doc={d} onRename={onRename} className="size-9" />
+              <RowMenu doc={d} onRename={onRename} onOpen={onOpen} className="size-9" />
             </div>
           </div>
         </li>
